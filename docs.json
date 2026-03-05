@@ -63,7 +63,8 @@
               "components/main-window",
               "components/download-panel",
               "components/library-panel",
-              "components/login-panel"
+              "components/login-panel",
+              "components/about-panel"
             ]
           },
           {

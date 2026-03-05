@@ -1,0 +1,170 @@
+---
+title: 'AboutPanel'
+description: 'Information panel displaying application details and credits'
+---
+
+## Overview
+
+`AboutPanel` displays information about the Tubify application, including author details, used resources, repository link, and the application logo. It provides a centralized location for users to learn about the application and its dependencies.
+
+<ParamField body="Package" type="string">
+  `es.perelluent.tubify`
+</ParamField>
+
+<ParamField body="Extends" type="class">
+  `javax.swing.JPanel`
+</ParamField>
+
+## Class Signature
+
+```java AboutPanel.java
+public class AboutPanel extends JPanel
+```
+
+## Constructor
+
+<ParamField path="AboutPanel" type="constructor">
+  ```java
+  public AboutPanel(MainWindow main)
+  ```
+  
+  Creates a new AboutPanel with a reference to the main application window.
+  
+  **Parameters:**
+  - `main` - Reference to the MainWindow for navigation
+</ParamField>
+
+## UI Components
+
+The AboutPanel displays the following information:
+
+### Logo Display
+
+```java AboutPanel.java:62-69
+JLabel lblLogo = new JLabel();
+URL imageUrl = getClass().getResource("/images/logo.png");
+lblLogo = new JLabel();
+if (imageUrl != null) {
+    ImageIcon icon = new ImageIcon(imageUrl);
+    lblLogo.setIcon(UpscaleIcon(icon, 280, 120));
+}
+lblLogo.setHorizontalAlignment(SwingConstants.CENTER);
+```
+
+The application logo is loaded from `/images/logo.png` and scaled to 280×120 pixels using the `UpscaleIcon` utility method from MainWindow.
+
+### Author Information
+
+```java AboutPanel.java:71-76
+JLabel lblAuthor = new JLabel("Autor: Pere Garcias");
+lblAuthor.setFont(new Font("Montserrat", Font.PLAIN, 16));
+
+JLabel lblCourse = new JLabel("DAM - Desarrollo de Interfaces");
+lblCourse.setFont(new Font("Montserrat", Font.PLAIN, 14));
+lblCourse.setForeground(Color.GRAY);
+```
+
+Displays the author name and course/project context.
+
+### Resources List
+
+```java AboutPanel.java:80-84
+JLabel lblResourcesTitle = new JLabel("Resources:");
+lblResourcesTitle.setFont(new Font("Montserrat", Font.BOLD, 14));
+
+JLabel lblResources = new JLabel("<html>• yt-dlp<br>• ffmpeg<br>• FlatLaf<br>• MigLayout</html>");
+lblResources.setFont(new Font("Montserrat", Font.PLAIN, 13));
+```
+
+Lists the key external technologies and libraries used in the application:
+- **yt-dlp** - Video/audio downloader
+- **ffmpeg** - Media processing
+- **FlatLaf** - Modern look and feel
+- **MigLayout** - Layout manager
+
+### Repository Link
+
+```java AboutPanel.java:86-93
+JLabel lblRepoTitle = new JLabel("Repository:");
+lblRepoTitle.setFont(new Font("Montserrat", Font.BOLD, 14));
+
+JTextField txtRepo = new JTextField("https://github.com/Perelluent/Tubify.git");
+txtRepo.setEditable(false);
+txtRepo.setBorder(null);
+txtRepo.setOpaque(false);
+txtRepo.setFont(new Font("Montserrat", Font.PLAIN, 12));
+```
+
+Displays the GitHub repository URL in a non-editable text field for easy copying.
+
+## Layout
+
+The panel uses MigLayout with a card-style design:
+
+```java AboutPanel.java:51-58
+JPanel pnlAbout = new JPanel(new MigLayout("wrap, insets 40, gapy 12", "[grow, fill]"));
+
+pnlAbout.setOpaque(true);
+pnlAbout.putClientProperty("FlatLaf.style", "arc: 25");       
+pnlAbout.setBorder(new CompoundBorder(
+    new FlatLineBorder(new Insets(0,0,0,0), Color.GRAY, 1, 25),
+    new EmptyBorder(10, 10, 10, 10)
+));
+```
+
+Features:
+- Rounded corners with 25px arc radius
+- Gray border with padding
+- Vertical layout with 12px gaps between components
+- 40px insets for spacing
+
+## Navigation
+
+### Back Button
+
+```java AboutPanel.java:96-105
+JButton btnBack = new JButton("Back to App");
+btnBack.setCursor(new Cursor(Cursor.HAND_CURSOR));
+btnBack.putClientProperty("FlatLaf.style", "arc: 15; background: #fb3f62; foreground: #ffffff");
+
+btnBack.addActionListener(new ActionListener() {
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        main.showMainWindow();
+    }
+});
+```
+
+The "Back to App" button allows users to return to the main application window. It features:
+- Pink accent color (#fb3f62)
+- Rounded corners (15px arc)
+- Hand cursor on hover
+- Returns to main window on click
+
+## Accessing the About Panel
+
+The About panel is accessible from the main menu:
+
+```java MainWindow.java
+mniAbout = new JMenuItem("About");
+mniAbout.addActionListener(e -> showAbout());
+mnuHelp.add(mniAbout);
+```
+
+Navigate to **Help → About** in the menu bar to display this panel.
+
+## Styling
+
+The AboutPanel uses the Montserrat font family throughout:
+- **Bold, 14pt** - Section titles
+- **Plain, 16pt** - Author name
+- **Plain, 14pt** - Course info
+- **Plain, 13pt** - Resources list
+- **Plain, 12pt** - Repository URL
+
+The panel integrates with the FlatLaf theme system and respects the application's dark/light mode settings.
+
+## See Also
+
+- [MainWindow](/components/main-window) - Parent application frame
+- [Theme Customization](/features/theme-customization) - FlatLaf styling details
