@@ -1,0 +1,102 @@
+{
+  "projectType": "frontend",
+  "projectName": "Tubify",
+  "projectDescription": "Cloud-enabled GUI downloader for yt-dlp built with Java Swing",
+  "theme": "palm",
+  "primaryColor": "#418f45",
+  "lightColor": "#eff8ef",
+  "darkColor": "#9ac0a4",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "features/downloading",
+              "features/library-management",
+              "features/cloud-sync",
+              "features/theme-customization"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/preferences",
+              "configuration/paths"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Components",
+        "groups": [
+          {
+            "group": "UI Panels",
+            "pages": [
+              "components/main-window",
+              "components/download-panel",
+              "components/library-panel",
+              "components/login-panel"
+            ]
+          },
+          {
+            "group": "Data Models",
+            "pages": [
+              "components/library-item",
+              "components/table-model"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Cloud Integration",
+        "groups": [
+          {
+            "group": "MediaPollingBean",
+            "pages": [
+              "cloud/overview",
+              "cloud/authentication",
+              "cloud/configuration",
+              "cloud/api-methods",
+              "cloud/events"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Download videos and audio from multiple platforms via yt-dlp",
+    "Cloud synchronization with JWT authentication",
+    "Modern UI with dark/light theme support",
+    "Real-time download progress tracking",
+    "Library management for local and cloud files",
+    "Audio extraction with format selection"
+  ],
+  "publicApiSurface": [
+    "MainWindow",
+    "DownloadPanel",
+    "LibraryPanel",
+    "LoginPanel",
+    "AboutPanel",
+    "Preferences",
+    "LibraryItem",
+    "LibraryTableModel",
+    "DownloadedFile",
+    "MediaPollingBean.login()",
+    "MediaPollingBean.getAllMedia()",
+    "MediaPollingBean.download()",
+    "MediaPollingBean.uploadFileMultipart()",
+    "MediaPollingBean.startPolling()"
+  ]
+}
