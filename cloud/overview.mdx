@@ -1,0 +1,164 @@
+---
+title: 'Cloud Integration Overview'
+description: 'Enterprise-level cloud synchronization powered by MediaPollingBean'
+---
+
+## What is MediaPollingBean?
+
+MediaPollingBean is a custom **Java Bean component** that provides enterprise-level cloud integration capabilities for Tubify. It enables secure authentication, real-time synchronization, and seamless media management between local storage and cloud services.
+
+This external dependency is a reusable JavaBean that can be integrated into any Java Swing application via the NetBeans GUI Builder or programmatically.
+
+<Note>
+  MediaPollingBean is an open-source component developed separately from Tubify.
+  View the source code on [GitHub](https://github.com/Perelluent/MediaPollingBean).
+</Note>
+
+## Enterprise Features
+
+MediaPollingBean provides the following capabilities:
+
+<CardGroup cols={2}>
+  <Card title="Secure Authentication" icon="lock">
+    JWT-based authentication with token persistence and "Remember Me" functionality
+  </Card>
+  <Card title="Real-Time Polling" icon="rotate">
+    Automatic background polling detects server changes and updates the UI instantly
+  </Card>
+  <Card title="File Synchronization" icon="cloud-arrow-up">
+    Upload local files to the cloud and download cloud files on-demand
+  </Card>
+  <Card title="Event-Driven Architecture" icon="bolt">
+    Custom event system notifies your application when new media is detected
+  </Card>
+</CardGroup>
+
+## Architecture Overview
+
+The MediaPollingBean component sits between Tubify's UI layer and the cloud API, providing a clean abstraction:
+
+```
+┌─────────────────────────────────────┐
+│   Tubify UI (MainWindow)            │
+│   - LoginPanel                      │
+│   - LibraryPanel                    │
+│   - DownloadPanel                   │
+└─────────────┬───────────────────────┘
+              │
+              ↓
+┌─────────────────────────────────────┐
+│   MediaPollingBean                  │
+│   - Authentication                  │
+│   - API Client                      │
+│   - Polling Timer                   │
+│   - Event Dispatcher                │
+└─────────────┬───────────────────────┘
+              │
+              ↓
+┌─────────────────────────────────────┐
+│   Cloud API                         │
+│   https://difreenet9.azurewebsites.net │
+└─────────────────────────────────────┘
+```
+
+## How Tubify Integrates MediaPollingBean
+
+Tubify integrates the component in several key areas:
+
+### 1. Initialization in MainWindow
+
+The MediaPollingBean is instantiated and configured when the application starts:
+
+```java MainWindow.java
+public class MainWindow extends JFrame implements MediaPollingBeanListener {
+    private final MediaPollingBean mediaPollingBean;
+    
+    public MainWindow() {
+        // Initialize and configure the bean
+        mediaPollingBean = new MediaPollingBean();
+        mediaPollingBean.setApiUrl("https://difreenet9.azurewebsites.net");
+        mediaPollingBean.setPollingInterval(30);
+        
+        // Register as event listener
+        mediaPollingBean.addMediaPollingBeanListener(this);
+    }
+    
+    @Override
+    public void onNewMediaFound(MediaPollingBeanEvent evt) {
+        // Reload library when new media is detected
+        if (libraryPanel != null) {
+            libraryPanel.loadMedia();
+        }
+    }
+}
+```
+
+**Reference:** [MainWindow.java:71-74](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/MainWindow.java:71)
+
+### 2. Authentication via LoginPanel
+
+The LoginPanel uses MediaPollingBean to authenticate users:
+
+```java LoginPanel.java
+private void btnLoginActionPerformed(ActionEvent evt) throws Exception {
+    String email = txtUser.getText();
+    var password = new String(pswPassword.getPassword());
+    
+    try {
+        String token = mediaPollingBean.login(email, password);
+        mainWindow.setToken(token);
+        mainWindow.showMainWindow();
+    } catch (Exception e) {
+        lblError.setText("Login failed. Please check your username and password.");
+    }
+}
+```
+
+**Reference:** [LoginPanel.java:186-210](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/LoginPanel.java:186)
+
+### 3. Media Management in LibraryPanel
+
+The LibraryPanel uses MediaPollingBean to upload, download, and retrieve media:
+
+```java LibraryPanel.java
+// Upload a local file to the cloud
+main.getMediaPollingBean().uploadFileMultipart(fileToUpload, "");
+
+// Download a cloud file
+main.getMediaPollingBean().download(media.id, tempFile);
+
+// Get all media from the cloud
+List<Media> cloudList = main.getMediaPollingBean().getAllMedia();
+```
+
+**References:**
+- Upload: [LibraryPanel.java:451](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/LibraryPanel.java:451)
+- Download: [LibraryPanel.java:537](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/LibraryPanel.java:537)
+- Get All: [LibraryPanel.java:582](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/LibraryPanel.java:582)
+
+## API Endpoint
+
+MediaPollingBean connects to the following cloud API:
+
+<ParamField path="API URL" type="string" required>
+  `https://difreenet9.azurewebsites.net`
+  
+  The base URL for all API requests. This Azure-hosted endpoint handles authentication, media storage, and retrieval.
+</ParamField>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/cloud/authentication">
+    Learn how to authenticate users with JWT tokens
+  </Card>
+  <Card title="Configuration" icon="gear" href="/cloud/configuration">
+    Configure MediaPollingBean properties
+  </Card>
+  <Card title="API Methods" icon="code" href="/cloud/api-methods">
+    Explore available API methods with examples
+  </Card>
+  <Card title="Events" icon="bell" href="/cloud/events">
+    Handle real-time media detection events
+  </Card>
+</CardGroup>

@@ -1,80 +1,405 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get started with Tubify and download your first video in minutes.
 ---
 
-## Get started in three steps
+# Quick Start Guide
 
-Get your documentation site running locally and make your first customization.
+This guide will help you go from zero to your first successful download with Tubify in just a few minutes.
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+Before starting, make sure you've completed the [installation](/installation) and have:
+
+- ✅ Tubify running on your system
+- ✅ yt-dlp installed and configured
+- ✅ (Optional) FFmpeg installed for audio extraction
+
+## First Launch
+
+<Steps>
+  <Step title="Start the Application">
+    Launch Tubify. You'll be greeted with the login screen featuring the Tubify logo.
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    <Note>
+      The login screen uses the custom Montserrat font and defaults to Dark theme. You can toggle between Dark and Light themes from the **Edit** menu.
+    </Note>
+  </Step>
+  
+  <Step title="Cloud Login (Optional)">
+    If you want to use cloud features:
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    - Enter your email and password
+    - Check "Remember Me" to persist your session
+    - Click **LOGIN**
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    **Skip this**: If you just want to download locally, you can use Tubify without logging in. The cloud features will be disabled, but all download functionality works.
+    
+    <Warning>
+      Cloud features require a MediaPollingBean backend service. If you don't have credentials, you can still use all local download features.
+    </Warning>
+  </Step>
+  
+  <Step title="Main Interface">
+    After logging in (or skipping login), you'll see the main Tubify interface with two panels:
+    
+    **Left Panel - DOWNLOAD**:
+    - URL input field
+    - Resolution selector
+    - Audio extraction options
+    - Download button and progress bar
+    
+    **Right Panel - LIBRARY**:
+    - Table showing your local and cloud media
+    - Search bar for filtering
+    - Action buttons (Play, Upload, Delete)
+    - Preferences and Logout buttons
+  </Step>
+</Steps>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## Your First Download
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+Let's download a video step by step:
 
-### Step 3: Go live
+<Steps>
+  <Step title="Copy a Video URL">
+    Copy a video URL from any supported platform (YouTube, Vimeo, etc.) to your clipboard.
+    
+    Example: `https://www.youtube.com/watch?v=dQw4w9WgXcQ`
+  </Step>
+  
+  <Step title="Paste the URL">
+    In the left **DOWNLOAD** panel:
+    
+    1. Click in the **URL** field (you'll see placeholder text: "Paste link here")
+    2. Paste your video URL (Ctrl+V or Cmd+V)
+    3. The URL field will validate that it starts with `https://`
+    
+    <Note>
+      If you paste an invalid URL, you'll see an error message in red: "Invalid URL. Please, enter a valid URL."
+    </Note>
+  </Step>
+  
+  <Step title="Select Format">
+    Choose your desired format:
+    
+    **For Video**:
+    - Keep "Only Audio" unchecked
+    - Select resolution from dropdown:
+      - **FullHD (1080p)** - Best quality, larger file
+      - **HD (720p)** - Good quality, moderate file size
+      - **SD (480p)** - Lower quality, smaller file
+      - **Best** - Highest available quality
+    
+    **For Audio Only**:
+    - Check the "Only Audio" checkbox
+    - The audio format dropdown becomes enabled
+    - Select format: **mp3**, **m4a**, or **wav**
+    
+    ```java DownloadPanel.java:160-177
+    if (chkOnlyAudio.isSelected()) {
+        String selectedAudioFormat = (String) cmbAudioFormat.getSelectedItem();
+        cmd.add("-x");
+        cmd.add("--audio-format");
+        if ("best".equalsIgnoreCase(selectedAudioFormat)) {
+            cmd.add("mp3");
+        } else {
+            cmd.add(selectedAudioFormat);
+        }
+    } else {
+        String selectedResolution = (String) cmbResolucion.getSelectedItem();
+        String formatSelector = chooseResolution(selectedResolution);
+        cmd.add("-f");
+        cmd.add(formatSelector);
+        cmd.add("--merge-output-format");
+        cmd.add("mp4");
+    }
+    ```
+  </Step>
+  
+  <Step title="Start Download">
+    Click the pink **DOWNLOAD** button.
+    
+    What happens:
+    - The button becomes disabled to prevent multiple simultaneous downloads
+    - A progress bar appears showing download percentage
+    - The application uses SwingWorker to download in the background
+    - You can still browse your library while downloading
+    
+    <Warning>
+      The download button will be disabled until the current download completes. This prevents bandwidth saturation and file conflicts.
+    </Warning>
+  </Step>
+  
+  <Step title="Monitor Progress">
+    Watch the real-time progress:
+    
+    - The progress bar updates as the download proceeds (0-100%)
+    - Console output shows yt-dlp's status messages
+    - The UI remains responsive - you can search your library or browse
+    
+    ```java DownloadPanel.java:231-246
+    Pattern pattern = Pattern.compile("\\[download\\]\\s+(\\d+\\.\\d+)%");
+    Matcher matcher = pattern.matcher(line);
+    
+    if (matcher.find()) {
+        try {
+            double percentage = Double.parseDouble(matcher.group(1));
+            int valor = (int) percentage;
+            
+            if (valor >= 0 && valor <= 100) {
+                progressBar.setValue(valor);
+            }
+        } catch (NumberFormatException e) {
+            System.err.println("Error parsing progress percentage: " + e.getMessage());
+        }
+    }
+    ```
+  </Step>
+</Steps>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+## After Download
 
-## Next steps
+<Steps>
+  <Step title="Success Notification">
+    When the download completes successfully:
+    
+    - Progress bar reaches 100%
+    - Success message appears: **"Download Finished!"** in pink
+    - The file is saved to your configured library folder
+  </Step>
+  
+  <Step title="Auto-Selection">
+    Tubify automatically:
+    
+    - Refreshes the library table
+    - Scrolls to the newly downloaded file
+    - Selects the row in blue (pink selection highlight)
+    - Brings the library table into focus
+    
+    <Note>
+      This auto-selection feature ensures you don't have to manually search for your newly downloaded file. The implementation uses a 200ms timer to ensure the table has finished rendering.
+    </Note>
+  </Step>
+  
+  <Step title="Play Your Media">
+    To play the downloaded file:
+    
+    1. The file should already be selected (auto-selected)
+    2. Click the **PLAY MEDIA** button (or it shows a play icon on hover)
+    3. The file opens in your system's default media player
+    
+    ```java LibraryPanel.java:362-371
+    if (selectedMedia.getLocalFile() != null) {
+        File file = new File(selectedMedia.getLocalFile().getFilePath());
+        
+        if (file.exists()) {
+            try {
+                Desktop.getDesktop().open(file);
+            } catch (IOException ex) {
+                System.getLogger(LibraryPanel.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            }
+            return;
+        }
+    }
+    ```
+  </Step>
+</Steps>
 
-Now that you have your docs running, explore these key features:
+## Understanding the Interface
+
+### Download Panel (Left)
+
+The download panel uses a card-based layout with rounded corners (`arc: 20`):
+
+- **URL Field**: Input field with placeholder text for pasting video URLs
+- **Resolution Dropdown**: Four preset options for video quality
+- **Only Audio Checkbox**: Toggles between video and audio-only mode
+- **Audio Format Dropdown**: Enabled only when "Only Audio" is checked
+- **Download Button**: Primary action button in brand color (#fb3f62)
+- **Progress Bar**: Shows real-time download percentage
+- **Notification Label**: Displays status messages and errors
+
+### Library Panel (Right)
+
+The library panel shows a unified view of local and cloud media:
+
+**Table Columns**:
+1. **Cloud Icon**: Indicates if file exists in cloud (visual indicator)
+2. **Local Icon**: Indicates if file exists locally (visual indicator)
+3. **Media Name**: The filename
+4. **Size**: File size in human-readable format
+
+**Features**:
+- **Search Bar**: Filter media by name using regex (updates as you type)
+- **Selection**: Single selection mode with pink highlight (#f39bab)
+- **Row Height**: 40px for comfortable viewing
+- **Custom Icons**: Visual indicators for cloud/local status
+
+## Common Workflows
+
+### Download and Upload to Cloud
+
+<Steps>
+  <Step title="Download Video Locally">
+    Follow the standard download process to save a video to your library.
+  </Step>
+  
+  <Step title="Select the File">
+    The file should be auto-selected, or click on it in the library table.
+  </Step>
+  
+  <Step title="Upload to Cloud">
+    Click the **UPLOAD** button. The file will be uploaded to your cloud storage using the MediaPollingBean service.
+    
+    <Note>
+      If the file already exists in the cloud, you'll see a message: "This file is already synchronized with the Cloud."
+    </Note>
+  </Step>
+</Steps>
+
+### Audio Extraction
+
+<Steps>
+  <Step title="Enable Audio-Only Mode">
+    Check the "Only Audio" checkbox in the download panel.
+  </Step>
+  
+  <Step title="Select Audio Format">
+    Choose from mp3, m4a, or wav based on your needs:
+    - **mp3**: Universal compatibility, compressed
+    - **m4a**: Better quality at same bitrate, Apple ecosystem
+    - **wav**: Lossless, large file size
+  </Step>
+  
+  <Step title="Download">
+    Paste URL and click DOWNLOAD. The audio will be extracted using FFmpeg.
+    
+    <Warning>
+      FFmpeg must be installed for audio extraction to work properly.
+    </Warning>
+  </Step>
+</Steps>
+
+### Organize Your Library
+
+<Steps>
+  <Step title="Use Search">
+    Type in the search bar to filter media by name. The filter uses case-insensitive regex matching.
+  </Step>
+  
+  <Step title="Delete Unwanted Files">
+    Select a file and click **DELETE** to remove it from your local storage. You'll see a confirmation dialog.
+  </Step>
+  
+  <Step title="Stream Cloud Files">
+    Select a cloud-only file (no local icon) and click **PLAY MEDIA**. Tubify will download it temporarily and open it in your media player.
+  </Step>
+</Steps>
+
+## Advanced Features
+
+### Theme Toggle
+
+Change the application's appearance:
+
+1. Go to **Edit** → **Toggle Theme** in the menu bar
+2. The application switches between FlatDarkLaf and FlatLightLaf
+3. All panels update dynamically
+
+### Preferences Configuration
+
+Customize Tubify's behavior:
+
+1. Click **PREFERENCES** button or go to **Edit** → **Preferences**
+2. Configure:
+   - **Download Folder**: Where files are saved (defaults to system Downloads)
+   - **Temporary Files**: Optional temp directory for yt-dlp
+   - **YT-DLP Path**: Path to yt-dlp executable
+   - **Create .m3u**: Enable playlist file creation
+   - **Speed Limit**: Choose between 500K or 2M to limit bandwidth
+
+```java MainWindow.java:199-214
+public void savePreferences() {
+    try (FileOutputStream out = new FileOutputStream(PROPERTIES_PATH)) {
+        props.setProperty("ytdlpPath", preferences.getYtdlpPath());
+        props.setProperty("tempDirPath", preferences.getTempDirPath());
+        props.setProperty("speedLimit", preferences.getSelectedSpeedLimit());
+        props.setProperty("createM3u", String.valueOf(preferences.isM3uCreationEnabled()));
+        props.setProperty("libraryPath", preferences.getLibraryPath());
+        
+        props.store(out, "Tubify Application Settings");
+        
+        loadPreferences();
+    } catch (IOException e) {
+        JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
+    }
+}
+```
+
+### Real-Time Cloud Polling
+
+When logged in:
+
+- Tubify polls the server every 30 seconds for new media
+- New files automatically appear in your library without manual refresh
+- The polling runs in a background thread to keep the UI responsive
+
+```java MainWindow.java:72-74
+mediaPollingBean.setApiUrl("https://difreenet9.azurewebsites.net");
+mediaPollingBean.setPollingInterval(30);
+```
+
+## Troubleshooting
+
+### Download Fails
+
+**Check**:
+- URL is valid and starts with `https://`
+- yt-dlp is properly installed and path is correct
+- You have write permissions to the download folder
+- Internet connection is active
+
+**Console Output**: Check the terminal/console for yt-dlp error messages
+
+### Audio Extraction Doesn't Work
+
+**Solution**: Install FFmpeg and ensure it's in your system PATH. Tubify requires FFmpeg to extract audio from videos.
+
+### Progress Bar Stuck
+
+**Solution**: The download might still be processing. Check:
+- Console output for yt-dlp status
+- Network activity
+- Disk space availability
+
+If stuck, wait for the process to timeout or restart Tubify.
+
+### File Not Auto-Selected
+
+**Reason**: The auto-selection uses fuzzy matching. If the filename changed during download (yt-dlp sometimes modifies names), the match might fail.
+
+**Solution**: Manually search for the file using the search bar or scroll through the library table.
+
+## What's Next?
+
+Now that you've successfully downloaded your first video:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Explore Features" icon="compass">
+    Try different resolutions, audio formats, and cloud synchronization features
+  </Card>
+  <Card title="Configure Settings" icon="gear">
+    Customize download locations, speed limits, and other preferences
+  </Card>
+  <Card title="Manage Library" icon="books">
+    Organize your downloaded media with search, upload, and delete operations
+  </Card>
+  <Card title="Use Cloud Sync" icon="cloud-arrow-up">
+    Upload your favorite media to access it from anywhere
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+---
+
+**Need Help?** Check the [yt-dlp documentation](https://github.com/yt-dlp/yt-dlp/wiki) for supported sites and advanced options.

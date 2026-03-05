@@ -1,0 +1,471 @@
+---
+title: 'API Methods'
+description: 'Complete reference for MediaPollingBean API methods with usage examples'
+---
+
+## Overview
+
+MediaPollingBean exposes five main API methods for interacting with the cloud backend. All methods (except `login`) require a valid JWT token obtained through authentication.
+
+## Authentication
+
+### login()
+
+Authenticates a user with email and password, returning a JWT token.
+
+```java
+public String login(String email, String password) throws Exception
+```
+
+<ParamField path="email" type="String" required>
+  User's email address
+</ParamField>
+
+<ParamField path="password" type="String" required>
+  User's password
+</ParamField>
+
+<ResponseField name="return" type="String">
+  JWT token for authenticated requests
+</ResponseField>
+
+<ResponseField name="throws" type="Exception">
+  Thrown if authentication fails (invalid credentials, network error, etc.)
+</ResponseField>
+
+#### Usage Example
+
+From LoginPanel's login button handler:
+
+```java LoginPanel.java
+private void btnLoginActionPerformed(ActionEvent evt) throws Exception {
+    String email = txtUser.getText();
+    var password = new String(pswPassword.getPassword());
+    lblError.setText("");
+    
+    try {
+        // Authenticate and get token
+        String token = mediaPollingBean.login(email, password);
+        mainWindow.setToken(token);
+        
+        // Save credentials if "Remember Me" is checked
+        if (chkRememberMe.isSelected()) {
+            prefs.put(prefEmail, email);
+            prefs.put(prefToken, token);
+            prefs.putBoolean(prefRememberMe, true);
+        }
+        
+        // Navigate to main window
+        mainWindow.showMainWindow();
+    } catch (Exception e) {
+        lblError.setText("Login failed. Please check your username and password.");
+        e.printStackTrace();
+    }
+}
+```
+
+**Reference:** [LoginPanel.java:186-210](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/LoginPanel.java:186)
+
+<Note>
+  The token is automatically stored in the MediaPollingBean instance and used for all subsequent API calls.
+</Note>
+
+---
+
+## Media Retrieval
+
+### getAllMedia()
+
+Retrieves all media files available on the cloud server.
+
+```java
+public List<LibraryItem> getAllMedia() throws Exception
+```
+
+<ResponseField name="return" type="List<LibraryItem>">
+  A list of all media items stored on the server. Each `LibraryItem` contains:
+  - `id` - Unique identifier
+  - `mediaFileName` - Original filename
+  - `mediaMimeType` - MIME type (e.g., "video/mp4")
+  - `downloadedFromUrl` - Source URL where media was downloaded from
+</ResponseField>
+
+<ResponseField name="throws" type="Exception">
+  Thrown if the request fails (network error, authentication error, etc.)
+</ResponseField>
+
+#### Usage Example
+
+From LibraryPanel's media loading thread:
+
+```java LibraryPanel.java
+private void loadMedia() {
+    Thread thread = new Thread(() -> {
+        try {
+            // Load cloud media list
+            List<Media> cloudList = null;
+            if (main.getMediaPollingBean().getToken() != null) {
+                try {
+                    cloudList = main.getMediaPollingBean().getAllMedia();
+                } catch (Exception e) {
+                    System.err.println("Error loading cloud: " + e.getMessage());
+                }
+            }
+            
+            // Merge with local files and update UI
+            // ... (additional code)
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    });
+    thread.start();
+}
+```
+
+**Reference:** [LibraryPanel.java:580-582](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/LibraryPanel.java:580)
+
+<Note>
+  This method requires a valid authentication token. Always check if the token exists before calling.
+</Note>
+
+---
+
+## File Download
+
+### download()
+
+Downloads a media file from the cloud to a local destination.
+
+```java
+public void download(int id, File destFile) throws Exception
+```
+
+<ParamField path="id" type="int" required>
+  The unique identifier of the media file to download
+</ParamField>
+
+<ParamField path="destFile" type="File" required>
+  The local file path where the downloaded content will be saved
+</ParamField>
+
+<ResponseField name="throws" type="Exception">
+  Thrown if the download fails (file not found, network error, permission error, etc.)
+</ResponseField>
+
+#### Usage Example
+
+From LibraryPanel's play/stream functionality:
+
+```java LibraryPanel.java
+private void btnPlayActionPerformed(java.awt.event.ActionEvent evt) {
+    int viewRow = tblLibrary.getSelectedRow();
+    if (viewRow == -1) {
+        JOptionPane.showMessageDialog(this, "Please select a file to play.");
+        return;
+    }
+    
+    int modelRow = tblLibrary.convertRowIndexToModel(viewRow);
+    LibraryItem item = libraryModel.getItemAt(modelRow);
+    
+    // Check if it's a cloud-only file
+    if (item.getLocalFile() == null && item.getCloudMedia() != null) {
+        // Stream from cloud
+        SwingWorker<File, Void> worker = new SwingWorker<File, Void>() {
+            @Override
+            protected File doInBackground() throws Exception {
+                Media media = item.getCloudMedia();
+                
+                // Create temporary file
+                String ext = media.mediaFileName.contains(".")
+                    ? media.mediaFileName.substring(media.mediaFileName.lastIndexOf(".")) 
+                    : ".tmp";
+                File tempFile = File.createTempFile("tubify_stream_", ext);
+                tempFile.deleteOnExit();
+                
+                // Download to temp file
+                main.getMediaPollingBean().download(media.id, tempFile);
+                
+                return tempFile;
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    File tempFile = get();
+                    Desktop.getDesktop().open(tempFile);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(LibraryPanel.this,
+                        "Error streaming file: " + ex.getMessage());
+                    ex.printStackTrace();
+                }
+            }
+        };
+        worker.execute();
+    }
+}
+```
+
+**Reference:** [LibraryPanel.java:537](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/LibraryPanel.java:537)
+
+<Warning>
+  This is a blocking operation that may take time for large files. Always call it from a background thread (e.g., `SwingWorker`) to avoid freezing the UI.
+</Warning>
+
+---
+
+## File Upload
+
+### uploadFileMultipart()
+
+Uploads a local file to the cloud using multipart form data.
+
+```java
+public void uploadFileMultipart(File file, String downloadedFromUrl) throws Exception
+```
+
+<ParamField path="file" type="File" required>
+  The local file to upload
+</ParamField>
+
+<ParamField path="downloadedFromUrl" type="String" required>
+  The original URL where the file was downloaded from. Can be empty string if not applicable.
+</ParamField>
+
+<ResponseField name="throws" type="Exception">
+  Thrown if the upload fails (file not found, network error, authentication error, etc.)
+</ResponseField>
+
+#### Usage Example
+
+From LibraryPanel's upload button handler:
+
+```java LibraryPanel.java
+private void btnUploadActionPerformed(java.awt.event.ActionEvent evt) {
+    int viewRow = tblLibrary.getSelectedRow();
+    if (viewRow == -1) {
+        JOptionPane.showMessageDialog(this, "Please select a local file to upload.");
+        return;
+    }
+    
+    int modelRow = tblLibrary.convertRowIndexToModel(viewRow);
+    LibraryItem item = libraryModel.getItemAt(modelRow);
+    
+    // Verify it's a local-only file
+    if (item.getLocalFile() == null) {
+        JOptionPane.showMessageDialog(this, "Please select a local file to upload.");
+        return;
+    }
+    
+    // Upload in background thread
+    SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
+        @Override
+        protected Void doInBackground() throws Exception {
+            File fileToUpload = new File(item.getLocalFile().getFilePath());
+            
+            if (!fileToUpload.exists()) {
+                throw new FileNotFoundException("File not found: " + fileToUpload.getAbsolutePath());
+            }
+            
+            // Upload file to cloud
+            main.getMediaPollingBean().uploadFileMultipart(fileToUpload, "");
+            return null;
+        }
+        
+        @Override
+        protected void done() {
+            try {
+                get();
+                JOptionPane.showMessageDialog(LibraryPanel.this,
+                    "Upload Successful!",
+                    "Success", JOptionPane.INFORMATION_MESSAGE);
+                
+                // Reload media list
+                loadMedia();
+                
+            } catch (Exception e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(LibraryPanel.this,
+                    "Upload Failed: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    };
+    worker.execute();
+}
+```
+
+**Reference:** [LibraryPanel.java:451](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/LibraryPanel.java:451)
+
+<Warning>
+  This is a blocking operation that may take significant time for large files. Always call it from a background thread to avoid freezing the UI.
+</Warning>
+
+---
+
+## Background Polling
+
+### startPolling()
+
+Manually triggers a check for new media on the server.
+
+```java
+public void startPolling() throws Exception
+```
+
+<ResponseField name="throws" type="Exception">
+  Thrown if the polling request fails
+</ResponseField>
+
+<Note>
+  This method is typically called automatically by the internal Timer when `running` is set to `true`. You rarely need to call this manually.
+</Note>
+
+#### How Automatic Polling Works
+
+When you set `running` to `true`, MediaPollingBean:
+
+1. Creates a Timer with the interval specified by `pollingInterval`
+2. Periodically calls `startPolling()` in the background
+3. Compares the server's media list with the previous check
+4. Fires `onNewMediaFound` event if new media is detected
+
+```java
+// Enable automatic polling
+mediaPollingBean.setRunning(true);
+
+// The bean now automatically calls startPolling() every pollingInterval seconds
+// You don't need to call it manually
+```
+
+#### Manual Usage
+
+If you want to trigger a check immediately (without waiting for the timer):
+
+```java
+try {
+    mediaPollingBean.startPolling();
+} catch (Exception e) {
+    System.err.println("Polling failed: " + e.getMessage());
+}
+```
+
+---
+
+## Complete Integration Example
+
+Here's how all methods work together in a typical workflow:
+
+```java
+public class MediaManager {
+    private MediaPollingBean bean;
+    
+    public void initialize() {
+        // 1. Configure
+        bean = new MediaPollingBean();
+        bean.setApiUrl("https://difreenet9.azurewebsites.net");
+        bean.setPollingInterval(30);
+        bean.addMediaPollingBeanListener(this);
+    }
+    
+    public void login(String email, String password) {
+        try {
+            // 2. Authenticate
+            String token = bean.login(email, password);
+            System.out.println("Logged in successfully");
+            
+            // 3. Start background polling
+            bean.setRunning(true);
+            
+        } catch (Exception e) {
+            System.err.println("Login failed: " + e.getMessage());
+        }
+    }
+    
+    public void loadLibrary() {
+        new Thread(() -> {
+            try {
+                // 4. Get all media
+                List<LibraryItem> items = bean.getAllMedia();
+                System.out.println("Found " + items.size() + " media items");
+                
+            } catch (Exception e) {
+                System.err.println("Failed to load media: " + e.getMessage());
+            }
+        }).start();
+    }
+    
+    public void downloadMedia(int mediaId, File destination) {
+        new Thread(() -> {
+            try {
+                // 5. Download a file
+                bean.download(mediaId, destination);
+                System.out.println("Download complete: " + destination.getName());
+                
+            } catch (Exception e) {
+                System.err.println("Download failed: " + e.getMessage());
+            }
+        }).start();
+    }
+    
+    public void uploadMedia(File file) {
+        new Thread(() -> {
+            try {
+                // 6. Upload a file
+                bean.uploadFileMultipart(file, "");
+                System.out.println("Upload complete: " + file.getName());
+                
+            } catch (Exception e) {
+                System.err.println("Upload failed: " + e.getMessage());
+            }
+        }).start();
+    }
+    
+    public void logout() {
+        // 7. Stop polling and clear token
+        bean.setRunning(false);
+        bean.setToken(null);
+    }
+}
+```
+
+## Error Handling Best Practices
+
+<Steps>
+  <Step title="Always use try-catch blocks">
+    All API methods can throw exceptions. Always wrap calls in try-catch blocks.
+  </Step>
+  <Step title="Use background threads">
+    Upload and download operations can take time. Use `SwingWorker` or separate threads.
+  </Step>
+  <Step title="Provide user feedback">
+    Show progress indicators during long operations and error messages on failure.
+  </Step>
+  <Step title="Check token validity">
+    Before calling authenticated methods, verify that a token exists.
+  </Step>
+  <Step title="Handle network errors gracefully">
+    Network operations can fail. Provide retry options or fallback behavior.
+  </Step>
+</Steps>
+
+## Method Summary Table
+
+| Method | Authentication Required | Blocking | Returns | Use Case |
+|--------|------------------------|----------|---------|----------|
+| `login()` | No | Yes | JWT token | User authentication |
+| `getAllMedia()` | Yes | Yes | List of media | Retrieve cloud library |
+| `download()` | Yes | Yes | void | Download cloud file |
+| `uploadFileMultipart()` | Yes | Yes | void | Upload local file |
+| `startPolling()` | Yes | Yes | void | Manual server check |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Events" icon="bell" href="/cloud/events">
+    Handle real-time media detection events
+  </Card>
+  <Card title="Authentication" icon="key" href="/cloud/authentication">
+    Learn about JWT authentication flow
+  </Card>
+</CardGroup>

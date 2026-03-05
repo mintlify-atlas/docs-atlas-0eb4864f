@@ -1,0 +1,482 @@
+---
+title: 'LibraryPanel'
+description: 'Panel for managing local and cloud media with search, playback, and synchronization'
+---
+
+## Overview
+
+`LibraryPanel` displays and manages the user's media library, combining both local files stored on disk and cloud media synchronized through the backend. It provides search, playback, upload, deletion, and logout functionality.
+
+<ParamField body="Package" type="string">
+  `es.perelluent.tubify`
+</ParamField>
+
+<ParamField body="Extends" type="class">
+  `javax.swing.JPanel`
+</ParamField>
+
+## Class Signature
+
+```java
+public class LibraryPanel extends JPanel
+```
+
+## Core Components
+
+<ResponseField name="tblLibrary" type="JTable">
+  Table displaying media items with custom `LibraryTableModel`
+</ResponseField>
+
+<ResponseField name="libraryModel" type="LibraryTableModel">
+  Custom table model managing `LibraryItem` entries that combine local and cloud media
+</ResponseField>
+
+<ResponseField name="txtSearch" type="JTextField">
+  Search field for filtering media by name using regex patterns
+</ResponseField>
+
+<ResponseField name="btnPlay" type="JButton">
+  Opens selected media in the default media player. Streams cloud files by downloading temporarily
+</ResponseField>
+
+<ResponseField name="btnUpload" type="JButton">
+  Uploads local media files to the cloud backend
+</ResponseField>
+
+<ResponseField name="btnDelete" type="JButton">
+  Deletes local files from disk after user confirmation
+</ResponseField>
+
+<ResponseField name="btnLogout" type="JButton">
+  Logs out the user and returns to the login panel
+</ResponseField>
+
+## Constructor
+
+```java
+public LibraryPanel(MainWindow main)
+```
+
+Initializes the library panel with references to the main window and login panel, sets up the UI, and loads media.
+
+<Accordion title="Constructor Implementation">
+```java
+public LibraryPanel(MainWindow main) {
+    this.main = main;
+    this.token = main.getToken();
+    this.loginPanel = main.getLoginPanel();
+    setLayout(new MigLayout("fill, insets 10 0 10 10", "[grow, fill]", "[][grow][]"));
+    initComponents();
+    loadMedia();
+}
+```
+</Accordion>
+
+## Table Configuration
+
+The table uses custom rendering for displaying local vs. cloud icons:
+
+<Accordion title="Table Setup">
+```java
+libraryModel = new LibraryTableModel();
+tblLibrary = new JTable(libraryModel);
+tblLibrary.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+tblLibrary.putClientProperty("Table.selectionBackground", Color.decode("#f39bab"));
+
+LibraryIconRenderer iconRenderer = new LibraryIconRenderer();
+tblLibrary.getColumnModel().getColumn(0).setCellRenderer(iconRenderer);
+tblLibrary.getColumnModel().getColumn(1).setCellRenderer(iconRenderer);
+
+tblLibrary.getColumnModel().getColumn(0).setPreferredWidth(60);
+tblLibrary.getColumnModel().getColumn(0).setMaxWidth(60);
+
+tblLibrary.getColumnModel().getColumn(1).setPreferredWidth(60);
+tblLibrary.getColumnModel().getColumn(1).setMaxWidth(60);
+
+tblLibrary.getColumnModel().getColumn(2).setPreferredWidth(800);
+tblLibrary.setRowHeight(40);
+tblLibrary.setShowVerticalLines(false);
+tblLibrary.getTableHeader().setReorderingAllowed(false);
+tblLibrary.setFont(new Font("Montserrat", Font.PLAIN, 13));
+```
+</Accordion>
+
+## Search and Filtering
+
+### filter()
+
+Implements real-time search using TableRowSorter with regex matching:
+
+```java
+private void filter(String query) {
+    TableRowSorter<LibraryTableModel> sorter = new TableRowSorter<>(libraryModel);
+    tblLibrary.setRowSorter(sorter);
+    if (query.length() == 0) {
+        sorter.setRowFilter(null);
+    } else {
+        try {
+            String escapedQuery = Pattern.quote(query);
+            sorter.setRowFilter(RowFilter.regexFilter("(?i)" + escapedQuery));
+        } catch (java.util.regex.PatternSyntaxException e) {
+            System.err.println("Error en el patrón de búsqueda: " + e.getMessage());
+        }
+    }
+}
+```
+
+The search field updates on every keystroke:
+
+```java
+txtSearch.addKeyListener(new java.awt.event.KeyAdapter() {
+    public void keyReleased(java.awt.event.KeyEvent evt) {
+        filter(txtSearch.getText());
+    }
+});
+```
+
+## File Operations
+
+### Play Media
+
+Handles both local and cloud media playback:
+
+<Accordion title="btnPlayActionPerformed()">
+```java
+private void btnPlayActionPerformed(java.awt.event.ActionEvent evt) {
+    int viewRow = tblLibrary.getSelectedRow();
+    if (viewRow == -1) {
+        JOptionPane.showMessageDialog(this, "Please select a file to play.");
+        return;
+    }
+    int modelRow = tblLibrary.convertRowIndexToModel(viewRow);
+    LibraryItem selectedMedia = libraryModel.getItemAt(modelRow);
+
+    if (selectedMedia == null) {
+        return;
+    }
+
+    if (selectedMedia.getLocalFile() != null) {
+        File file = new File(selectedMedia.getLocalFile().getFilePath());
+        if (file.exists()) {
+            try {
+                Desktop.getDesktop().open(file);
+            } catch (IOException ex) {
+                System.getLogger(LibraryPanel.class.getName()).log(System.Logger.Level.ERROR, null, ex);
+            }
+            return;
+        } else {
+            JOptionPane.showMessageDialog(this,
+                    "File missing from disk: " + file.getAbsolutePath(),
+                    "Local File Error", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+    if (selectedMedia.getCloudMedia() != null) {
+        playCloudMedia(selectedMedia.getCloudMedia());
+    }
+}
+```
+</Accordion>
+
+### Upload to Cloud
+
+Uploads local files using MediaPollingBean:
+
+<Accordion title="btnUploadActionPerformed()">
+```java
+private void btnUploadActionPerformed(java.awt.event.ActionEvent evt) {
+    int viewRow = tblLibrary.getSelectedRow();
+    if (viewRow == -1) {
+        JOptionPane.showMessageDialog(this, "Please select a local file to upload.");
+        return;
+    }
+
+    int modelRow = tblLibrary.convertRowIndexToModel(viewRow);
+    LibraryItem item = libraryModel.getItemAt(modelRow);
+    
+    if (item.getLocalFile() == null) {
+        JOptionPane.showMessageDialog(this,
+                "This file is only in the Cloud. You cannot upload it again.",
+                "Upload Error", JOptionPane.WARNING_MESSAGE);
+        return;
+    }
+
+    if (item.getCloudMedia() != null) {
+        JOptionPane.showMessageDialog(this,
+                "This file is already synchronized with the Cloud.",
+                "Info", JOptionPane.INFORMATION_MESSAGE);
+        return;
+    }
+
+    SwingWorker<Void, Void> worker = new SwingWorker<>() {
+        @Override
+        protected Void doInBackground() throws Exception {
+            File fileToUpload = new File(item.getLocalFile().getFilePath());
+            if (!fileToUpload.exists()) {
+                throw new FileNotFoundException("File not found: " + fileToUpload.getAbsolutePath());
+            }
+            main.getMediaPollingBean().uploadFileMultipart(fileToUpload, "");
+            return null;
+        }
+
+        @Override
+        protected void done() {
+            try {
+                get();
+                JOptionPane.showMessageDialog(LibraryPanel.this,
+                        "Upload Successful!",
+                        "Success", JOptionPane.INFORMATION_MESSAGE);
+                loadMedia();
+            } catch (Exception e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(LibraryPanel.this,
+                        "Upload Failed: " + e.getMessage(),
+                        "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    };
+    worker.execute();
+}
+```
+</Accordion>
+
+### Delete Local Files
+
+<Accordion title="btnDeleteActionPerformed()">
+```java
+private void btnDeleteActionPerformed(java.awt.event.ActionEvent evt) {
+    int selectedRow = tblLibrary.getSelectedRow();
+    if (selectedRow == -1) {
+        JOptionPane.showMessageDialog(LibraryPanel.this, "Please. First select a File to delete.");
+        return;
+    }
+
+    int modelRow = tblLibrary.convertRowIndexToModel(selectedRow);
+    LibraryItem item = libraryModel.getItemAt(modelRow);
+
+    if (item != null && item.getLocalFile() != null) {
+        int confirm = JOptionPane.showConfirmDialog(
+                LibraryPanel.this,
+                "Are you sure you want to delete '" + item.getMediaName() + "' from your computer?",
+                "Confirm Delete",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            boolean deleted = item.getLocalFile().deleteFromDisk();
+            if (deleted) {
+                JOptionPane.showMessageDialog(LibraryPanel.this, "File deleted from disk.");
+                loadMedia();
+            } else {
+                JOptionPane.showMessageDialog(LibraryPanel.this,
+                        "The file could not be deleted. It might be in use by another program.",
+                        "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    } else {
+        JOptionPane.showMessageDialog(LibraryPanel.this,
+                "This file is only in the Cloud. Local deletion is not possible.");
+    }
+}
+```
+</Accordion>
+
+## Cloud Media Streaming
+
+### playCloudMedia()
+
+Streams cloud files by downloading them to a temporary location:
+
+<Accordion title="Cloud Streaming Implementation">
+```java
+private void playCloudMedia(Media media) {
+    SwingWorker<File, Void> worker = new SwingWorker<>() {
+        @Override
+        protected File doInBackground() throws Exception {
+            // Creates the temporary file
+            String ext = media.mediaFileName.contains(".")
+                    ? media.mediaFileName.substring(media.mediaFileName.lastIndexOf(".")) : ".tmp";
+            File tempFile = File.createTempFile("tubify_stream_", ext);
+            tempFile.deleteOnExit();
+
+            main.getMediaPollingBean().download(media.id, tempFile);
+            return tempFile;
+        }
+
+        @Override
+        protected void done() {
+            try {
+                File tempFile = get();
+                Desktop.getDesktop().open(tempFile);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(LibraryPanel.this,
+                        "Error streaming file: " + ex.getMessage());
+                ex.printStackTrace();
+            }
+        }
+    };
+
+    this.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR));
+    worker.addPropertyChangeListener(evt -> {
+        if (javax.swing.SwingWorker.StateValue.DONE == evt.getNewValue()) {
+            this.setCursor(java.awt.Cursor.getDefaultCursor());
+        }
+    });
+    worker.execute();
+}
+```
+</Accordion>
+
+## Media Loading and Merging
+
+### loadMedia()
+
+Asynchronously loads media from both cloud and local sources:
+
+<Accordion title="Media Loading Implementation">
+```java
+public void loadMedia(String fileToSelect) {
+    Thread thread = new Thread(() -> {
+        try {
+            // Load cloud list
+            List<Media> cloudList = null;
+            if (main.getMediaPollingBean().getToken() != null) {
+                try {
+                    cloudList = main.getMediaPollingBean().getAllMedia();
+                } catch (Exception e) {
+                    System.err.println("Error cargando nube: " + e.getMessage());
+                }
+            }
+
+            // Load local list
+            List<DownloadedFile> localList = new ArrayList<>();
+            String userHome = System.getProperty("user.home");
+            String propsPath = userHome + File.separator + "TubifySettings.properties";
+            java.util.Properties props = new java.util.Properties();
+
+            File propsFile = new File(propsPath);
+            if (propsFile.exists()) {
+                try (FileInputStream in = new FileInputStream(propsFile)) {
+                    props.load(in);
+                    String folderPath = props.getProperty("libraryPath");
+                    if (folderPath != null) {
+                        File folder = new File(folderPath);
+                        if (folder.exists() && folder.isDirectory()) {
+                            File[] files = folder.listFiles();
+                            if (files != null) {
+                                for (File f : files) {
+                                    if (f.isFile() && !f.getName().startsWith(".")) {
+                                        localList.add(new DownloadedFile(f));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+
+            // Merge lists
+            final List<LibraryItem> mergedList = mergeLists(cloudList, localList);
+
+            // Update media list
+            SwingUtilities.invokeLater(() -> {
+                libraryModel.setItems(mergedList);
+                // Auto-select logic for newly downloaded files...
+            });
+        } catch (Exception e) {
+            System.err.println("Error en la carga de medios: " + e.getMessage());
+        }
+    });
+    thread.start();
+}
+```
+</Accordion>
+
+### mergeLists()
+
+Combines cloud and local media into unified library items:
+
+```java
+private List<LibraryItem> mergeLists(List<Media> cloud, List<DownloadedFile> local) {
+    Map<String, LibraryItem> map = new HashMap<>();
+    if (cloud != null) {
+        for (Media m : cloud) {
+            map.put(m.mediaFileName, new LibraryItem(m, null));
+        }
+    }
+    if (local != null) {
+        for (DownloadedFile df : local) {
+            String name = df.getFileName();
+            if (map.containsKey(name)) {
+                map.get(name).setLocalFile(df);
+            } else {
+                map.put(name, new LibraryItem(null, df));
+            }
+        }
+    }
+    return new ArrayList<>(map.values());
+}
+```
+
+## Auto-Selection
+
+After download, the panel automatically scrolls to and selects the new file:
+
+<Accordion title="Auto-Selection Logic">
+```java
+if (fileToSelect != null && !fileToSelect.isEmpty()) {
+    javax.swing.Timer selectionTimer = new javax.swing.Timer(200, e -> {
+        String cleanTarget = fileToSelect.replaceAll("\\.f\\d+\\.[a-z0-9]+$", "")
+                .replaceAll("\\.[^.]+$", "")
+                .replaceAll("[^a-zA-Z0-9]", "")
+                .toLowerCase();
+
+        for (int i = 0; i < tblLibrary.getRowCount(); i++) {
+            Object value = tblLibrary.getValueAt(i, 2);
+            if (value != null) {
+                String nameInTable = value.toString().replaceAll("\\.[^.]+$", "")
+                        .replaceAll("[^a-zA-Z0-9]", "")
+                        .toLowerCase();
+
+                if (!cleanTarget.isEmpty() && (nameInTable.contains(cleanTarget) || cleanTarget.contains(nameInTable))) {
+                    final int row = i;
+                    tblLibrary.setRowSelectionInterval(row, row);
+                    Rectangle rect = tblLibrary.getCellRect(row, 0, true);
+                    tblLibrary.scrollRectToVisible(rect);
+                    tblLibrary.requestFocusInWindow();
+                    return;
+                }
+            }
+        }
+    });
+    selectionTimer.setRepeats(false);
+    selectionTimer.start();
+}
+```
+</Accordion>
+
+## Logout Functionality
+
+```java
+private void btnLogoutActionPerformed(java.awt.event.ActionEvent evt) {
+    int response = JOptionPane.showConfirmDialog(
+            null,
+            "¿Are you sure you want to logout?",
+            "Logout",
+            JOptionPane.YES_NO_OPTION
+    );
+    if (response == JOptionPane.YES_OPTION) {
+        try {
+            main.getMediaPollingBean().setRunning(false);
+            main.getMediaPollingBean().setToken(null);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        this.token = null;
+        loginPanel.clearTextAreas();
+        main.showLoginPanel();
+    }
+}
+```

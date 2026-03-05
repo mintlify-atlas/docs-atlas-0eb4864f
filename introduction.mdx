@@ -1,0 +1,123 @@
+---
+title: Introduction
+description: Learn about Tubify, a modern Java Swing desktop application that provides a powerful GUI for yt-dlp with cloud integration.
+---
+
+# Welcome to Tubify
+
+Tubify is a desktop application built with **Java Swing** that acts as a **GUI wrapper** around the powerful command-line tool [`yt-dlp`](https://github.com/yt-dlp/yt-dlp). It allows users to download videos or audio files easily from multiple platforms without technical complexity.
+
+## What is Tubify?
+
+Tubify transforms the command-line experience of yt-dlp into an intuitive, modern desktop application. Whether you want to download videos, extract audio, or manage your media library, Tubify provides a seamless experience with cloud synchronization capabilities.
+
+<CardGroup cols={2}>
+  <Card title="Easy Downloads" icon="download">
+    Download videos or audio from multiple platforms with just a URL paste
+  </Card>
+  <Card title="Cloud Sync" icon="cloud">
+    Login to access your media files from anywhere with cloud synchronization
+  </Card>
+  <Card title="Modern UI" icon="palette">
+    Clean, modern interface with dark/light theme support using FlatLaf
+  </Card>
+  <Card title="Library Management" icon="folder">
+    View and manage both local and cloud files in a unified table
+  </Card>
+</CardGroup>
+
+## Key Features
+
+### Download Management
+
+<Steps>
+  <Step title="Multiple Format Support">
+    Download videos in various resolutions (1080p, 720p, 480p, or best available) or extract audio in MP3, M4A, or WAV formats.
+  </Step>
+  <Step title="Real-time Progress Tracking">
+    Monitor download progress with a visual progress bar that updates in real-time, showing percentage completion.
+  </Step>
+  <Step title="Smart URL Validation">
+    Built-in URL validation ensures you're downloading from valid sources before processing begins.
+  </Step>
+</Steps>
+
+### User Interface
+
+- **Modern Design**: Utilizes FlatLaf library for a clean, contemporary aesthetic with a high-contrast color palette (dark grey background with pink accents using brand color `#fb3f62`)
+- **Theme Toggle**: Seamlessly switch between Dark and Light modes to suit your preference
+- **Responsive Layouts**: Uses BorderLayout and MigLayout for dynamic resizing that maintains visual integrity when maximized
+- **Custom Typography**: Montserrat font with different weights (Bold for titles, Regular for data) for improved legibility
+- **Interactive Icons**: Buttons display as primary action components that transition into icons on mouse hover with descriptive tooltips
+
+### Cloud Integration
+
+Powered by [MediaPollingBean](https://github.com/Perelluent/MediaPollingBean), Tubify provides enterprise-level cloud features:
+
+<Note>
+  **Secure Authentication**: User login with JWT token persistence and "Remember Me" functionality ensures your sessions are secure and convenient.
+</Note>
+
+- **Real-Time Polling**: The app automatically listens for changes on the server (every 30 seconds by default) and updates the UI instantly when new files are added
+- **Upload & Download**: Upload local media to the cloud or stream cloud media directly
+- **Smart Playback**: Plays local files instantly with your system's default media player, or streams cloud files by downloading them temporarily
+
+### Library Management
+
+- **Unified View**: See both local files and cloud media in a single table with visual indicators
+- **Real-time Search**: Filter your media library using regular expressions as you type
+- **Auto-Selection**: After a successful download, the system automatically scrolls to and selects the new file
+- **File Operations**: Play, upload, or delete media files directly from the library interface
+
+### Performance & Concurrency
+
+<Warning>
+  All heavy processes use SwingWorker for multi-threading, ensuring the UI remains responsive (non-blocking) while downloads or cloud sync operations are in progress.
+</Warning>
+
+- **Background Processing**: Video downloading via yt-dlp and cloud synchronization run in background threads
+- **State Control**: Download button is disabled during active processes to prevent bandwidth saturation or file conflicts
+- **Informative Feedback**: Status reporting with color-coded labels (success or red for failure) keeps you informed
+
+## Use Cases
+
+### Content Creators
+Download reference videos, extract audio for editing projects, and maintain a synchronized library across devices.
+
+### Music Enthusiasts
+Extract audio tracks in your preferred format (MP3, M4A, WAV) and manage your collection with cloud backup.
+
+### Researchers
+Download educational content for offline viewing and organize it in a searchable library.
+
+### Personal Media Management
+Keep your downloaded media organized with both local storage and cloud backup, accessible through a clean interface.
+
+## Benefits
+
+✅ **No Command-Line Required**: All yt-dlp functionality accessible through an intuitive GUI
+
+✅ **Cross-Platform Cloud Access**: Access your media from anywhere with cloud synchronization
+
+✅ **Customizable Settings**: Configure download locations, speed limits, temporary directories, and yt-dlp path
+
+✅ **Modern & Responsive**: Built with Java 24 and modern UI frameworks for a smooth experience
+
+✅ **Open Source Tools**: Built on top of trusted open-source tools like yt-dlp and FFmpeg
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="rocket" href="/installation">
+    Get Tubify up and running on your system with our step-by-step installation guide
+  </Card>
+  <Card title="Quick Start" icon="bolt" href="/quickstart">
+    Download your first video in minutes with our quick start tutorial
+  </Card>
+</CardGroup>
+
+---
+
+**Author**: Pere Garcias  
+**Built with**: Java Swing (JDK 24), yt-dlp, FFmpeg  
+**IDE**: NetBeans 27

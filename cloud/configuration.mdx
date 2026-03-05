@@ -1,0 +1,329 @@
+---
+title: 'Configuration'
+description: 'Configure MediaPollingBean properties for cloud integration'
+---
+
+## Overview
+
+MediaPollingBean can be configured either through the **NetBeans GUI Builder** (for visual design) or **programmatically** (in your Java code). This page covers all configuration properties and how to set them up.
+
+## Configuration Properties
+
+MediaPollingBean exposes four main configuration properties:
+
+<ParamField path="apiUrl" type="String" required>
+  The base URL of the cloud API (e.g., `https://difreenet9.azurewebsites.net`).
+  
+  Setting this property initializes the internal `ApiClient` component.
+  
+  **Example:** `"https://difreenet9.azurewebsites.net"`
+</ParamField>
+
+<ParamField path="pollingInterval" type="int" default="30">
+  Time in **seconds** between server checks.
+  
+  The bean automatically converts this value to milliseconds for the internal Timer.
+  
+  **Example:** `30` (checks every 30 seconds)
+</ParamField>
+
+<ParamField path="running" type="boolean" default="false">
+  Controls the background polling service.
+  
+  - Setting to `true` starts the polling Timer
+  - Setting to `false` stops the polling Timer
+  
+  **Note:** Polling automatically triggers the `onNewMediaFound` event when new media is detected.
+</ParamField>
+
+<ParamField path="token" type="String">
+  The JWT Bearer token used for authenticated requests.
+  
+  This is usually set automatically after a successful login via `login(email, password)`.
+  
+  **Example:** `"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+</ParamField>
+
+## Programmatic Configuration
+
+This is how Tubify configures MediaPollingBean in the MainWindow constructor:
+
+```java MainWindow.java
+public class MainWindow extends JFrame implements MediaPollingBeanListener {
+    private final MediaPollingBean mediaPollingBean;
+    
+    public MainWindow() {
+        // Create new instance
+        mediaPollingBean = new MediaPollingBean();
+        
+        // Set API URL (required)
+        mediaPollingBean.setApiUrl("https://difreenet9.azurewebsites.net");
+        
+        // Set polling interval (in seconds)
+        mediaPollingBean.setPollingInterval(30);
+        
+        // Register event listener
+        mediaPollingBean.addMediaPollingBeanListener(this);
+        
+        // Note: token is set later after login
+        // Note: running is controlled by user actions
+    }
+}
+```
+
+**Reference:** [MainWindow.java:72-74](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/MainWindow.java:72)
+
+## Configuration via NetBeans GUI Builder
+
+If you're using NetBeans to design your UI:
+
+<Steps>
+  <Step title="Add MediaPollingBean to palette">
+    1. Open the Palette Manager (Tools → Palette → Swing/AWT Components)
+    2. Click "Add from JAR"
+    3. Select the MediaPollingBean JAR file
+    4. Choose the `MediaPollingBean` class
+  </Step>
+  <Step title="Drag bean onto form">
+    Drag the MediaPollingBean component from the palette onto your JFrame or JPanel.
+    
+    It will appear in the "Other Components" section at the bottom of the designer.
+  </Step>
+  <Step title="Configure properties">
+    Select the bean in the designer and open the Properties window:
+    
+    - **apiUrl**: Enter `https://difreenet9.azurewebsites.net`
+    - **pollingInterval**: Enter `30` (or your preferred interval)
+    - **running**: Leave as `false` initially
+    - **token**: Leave empty (set programmatically after login)
+  </Step>
+  <Step title="Register event listener">
+    In your form's constructor, register your class as a listener:
+    
+    ```java
+    public MainWindow() {
+        initComponents(); // NetBeans generated
+        mediaPollingBean1.addMediaPollingBeanListener(this);
+    }
+    ```
+  </Step>
+</Steps>
+
+## API URL Setup
+
+The API URL must be set before making any API calls:
+
+```java
+// Set the API URL
+mediaPollingBean.setApiUrl("https://difreenet9.azurewebsites.net");
+```
+
+<Note>
+  Setting the `apiUrl` property initializes the internal `ApiClient` component.
+  Make sure to set this **before** calling any API methods like `login()` or `getAllMedia()`.
+</Note>
+
+### Using a Different API Endpoint
+
+If you want to use a different backend or local development server:
+
+```java
+// Development environment
+mediaPollingBean.setApiUrl("http://localhost:5000");
+
+// Staging environment
+mediaPollingBean.setApiUrl("https://staging.example.com");
+
+// Production (default)
+mediaPollingBean.setApiUrl("https://difreenet9.azurewebsites.net");
+```
+
+## Polling Interval Configuration
+
+Adjust how frequently the bean checks for new media:
+
+```java
+// Check every 30 seconds (default)
+mediaPollingBean.setPollingInterval(30);
+
+// Check every minute
+mediaPollingBean.setPollingInterval(60);
+
+// Check every 10 seconds (more frequent)
+mediaPollingBean.setPollingInterval(10);
+```
+
+<Warning>
+  **Performance Consideration:**
+  
+  Shorter intervals provide more real-time updates but increase:
+  - Network traffic
+  - Server load
+  - Battery usage (on laptops)
+  
+  Choose an interval that balances responsiveness with resource usage.
+</Warning>
+
+## Starting and Stopping Polling
+
+Control the background polling service:
+
+```java
+// Start polling (after login)
+mediaPollingBean.setRunning(true);
+
+// Stop polling (during logout)
+mediaPollingBean.setRunning(false);
+```
+
+### Example: Login Flow
+
+```java LoginPanel.java
+private void btnLoginActionPerformed(ActionEvent evt) throws Exception {
+    try {
+        // Authenticate user
+        String token = mediaPollingBean.login(email, password);
+        mainWindow.setToken(token);
+        
+        // Start background polling after successful login
+        mediaPollingBean.setRunning(true);
+        
+        mainWindow.showMainWindow();
+    } catch (Exception e) {
+        lblError.setText("Login failed.");
+    }
+}
+```
+
+### Example: Logout Flow
+
+```java LibraryPanel.java
+private void btnLogoutActionPerformed(ActionEvent evt) {
+    try {
+        // Stop polling
+        main.getMediaPollingBean().setRunning(false);
+        
+        // Clear authentication token
+        main.getMediaPollingBean().setToken(null);
+    } catch (Exception ex) {
+        ex.printStackTrace();
+    }
+    
+    // Return to login screen
+    loginPanel.clearTextAreas();
+    main.showLoginPanel();
+}
+```
+
+**Reference:** [LibraryPanel.java:400-401](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/LibraryPanel.java:400)
+
+## Token Configuration
+
+The token is typically set automatically after login:
+
+```java
+// Login returns a JWT token
+String token = mediaPollingBean.login(email, password);
+
+// Token is automatically stored in the bean
+// But you may also want to store it in your application
+mainWindow.setToken(token);
+```
+
+For session restoration ("Remember Me" functionality):
+
+```java LoginPanel.java
+// Restore previous session
+String savedToken = prefs.get(prefToken, "");
+if (!savedToken.isEmpty()) {
+    try {
+        // Set the token directly
+        mediaPollingBean.setToken(savedToken);
+        mainWindow.setToken(savedToken);
+        mainWindow.showMainWindow();
+    } catch (Exception e) {
+        // Token expired - clear and show login
+        prefs.remove(prefToken);
+        lblError.setText("Session expired. Please login again.");
+    }
+}
+```
+
+**Reference:** [LoginPanel.java:161-162](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/LoginPanel.java:161)
+
+## Complete Configuration Example
+
+Here's a complete example showing all configuration aspects:
+
+```java
+public class MainWindow extends JFrame implements MediaPollingBeanListener {
+    private final MediaPollingBean mediaPollingBean;
+    
+    public MainWindow() {
+        // 1. Initialize
+        mediaPollingBean = new MediaPollingBean();
+        
+        // 2. Configure API endpoint
+        mediaPollingBean.setApiUrl("https://difreenet9.azurewebsites.net");
+        
+        // 3. Set polling interval (30 seconds)
+        mediaPollingBean.setPollingInterval(30);
+        
+        // 4. Register event listener
+        mediaPollingBean.addMediaPollingBeanListener(this);
+        
+        // 5. Initialize UI panels
+        loginPanel = new LoginPanel(mediaPollingBean, this);
+        libraryPanel = new LibraryPanel(this);
+        
+        // 6. Check for remembered session
+        loginPanel.checkRememberMe();
+    }
+    
+    // Handle new media detection
+    @Override
+    public void onNewMediaFound(MediaPollingBeanEvent evt) {
+        if (libraryPanel != null) {
+            libraryPanel.loadMedia();
+        }
+    }
+    
+    public MediaPollingBean getMediaPollingBean() {
+        return mediaPollingBean;
+    }
+}
+```
+
+## Configuration Checklist
+
+<Steps>
+  <Step title="Create MediaPollingBean instance">
+    `mediaPollingBean = new MediaPollingBean();`
+  </Step>
+  <Step title="Set API URL (required)">
+    `mediaPollingBean.setApiUrl("https://difreenet9.azurewebsites.net");`
+  </Step>
+  <Step title="Configure polling interval (optional)">
+    `mediaPollingBean.setPollingInterval(30);`
+  </Step>
+  <Step title="Register event listener">
+    `mediaPollingBean.addMediaPollingBeanListener(this);`
+  </Step>
+  <Step title="Set token after login">
+    Token is set automatically by `login()` method
+  </Step>
+  <Step title="Control polling">
+    Use `setRunning(true/false)` to start/stop
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Methods" icon="code" href="/cloud/api-methods">
+    Explore available API methods with examples
+  </Card>
+  <Card title="Events" icon="bell" href="/cloud/events">
+    Handle real-time media detection events
+  </Card>
+</CardGroup>

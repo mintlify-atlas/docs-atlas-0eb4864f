@@ -1,0 +1,325 @@
+---
+title: 'DownloadPanel'
+description: 'Panel for downloading media using yt-dlp with progress tracking'
+---
+
+## Overview
+
+`DownloadPanel` provides a user interface for downloading videos and audio using yt-dlp. It supports resolution selection, audio-only downloads, and real-time progress tracking using SwingWorker.
+
+<ParamField body="Package" type="string">
+  `es.perelluent.tubify`
+</ParamField>
+
+<ParamField body="Extends" type="class">
+  `javax.swing.JPanel`
+</ParamField>
+
+## Class Signature
+
+```java
+public class DownloadPanel extends JPanel
+```
+
+## UI Components
+
+<ResponseField name="txtUrl" type="JTextField">
+  Text field for entering the media URL to download
+</ResponseField>
+
+<ResponseField name="cmbResolucion" type="JComboBox<String>">
+  Dropdown for selecting video resolution: FullHD (1080p), HD (720p), SD (480p), or Best
+</ResponseField>
+
+<ResponseField name="chkOnlyAudio" type="JCheckBox">
+  Checkbox to enable audio-only download mode
+</ResponseField>
+
+<ResponseField name="cmbAudioFormat" type="JComboBox<String>">
+  Dropdown for selecting audio format: mp3, m4a, or wav. Enabled only when `chkOnlyAudio` is selected
+</ResponseField>
+
+<ResponseField name="btnDownload" type="JButton">
+  Button that triggers the download process
+</ResponseField>
+
+<ResponseField name="progressBar" type="JProgressBar">
+  Visual progress indicator showing download completion percentage
+</ResponseField>
+
+<ResponseField name="lblNotification" type="JLabel">
+  Label for displaying status messages and errors
+</ResponseField>
+
+## Constructor
+
+```java
+public DownloadPanel(MainWindow main)
+```
+
+Initializes the download panel with a reference to the main window and sets up the MigLayout.
+
+<Accordion title="Constructor Implementation">
+```java
+public DownloadPanel(MainWindow main) {
+    this.main = main;
+    setLayout(new MigLayout("fill, insets 10", "[grow]", "[]"));
+    initComponents();
+}
+```
+</Accordion>
+
+## Layout Structure
+
+The panel uses MigLayout with a card-style container:
+
+<Accordion title="Component Initialization">
+```java
+private void initComponents() {
+    JPanel pnlCard = new JPanel(new MigLayout("wrap, insets 20, gapy 10", "[grow, fill]"));
+    pnlCard.putClientProperty("FlatLaf.style", "arc: 20");
+
+    JLabel lblTitle = new JLabel("DOWNLOAD");
+    lblTitle.setFont(new Font("Montserrat", Font.BOLD, 18));
+    pnlCard.add(lblTitle, "gapbottom 10");
+
+    pnlCard.add(new JLabel("URL:"));
+    txtUrl = new JTextField();
+    txtUrl.putClientProperty("JTextField.placeholderText", "Paste link here");
+    pnlCard.add(txtUrl, "h 35!");
+
+    pnlCard.add(new JLabel("Resolution:"), "gaptop 10");
+    cmbResolucion = new JComboBox<>(new String[]{"FullHD (1080p)", "HD (720p)", "SD (480p)", "Best"});
+    pnlCard.add(cmbResolucion, "h 30!");
+
+    chkOnlyAudio = new JCheckBox("Only Audio");
+    chkOnlyAudio.addActionListener(e -> {
+        cmbAudioFormat.setEnabled(chkOnlyAudio.isSelected());
+    });
+    pnlCard.add(chkOnlyAudio);
+
+    cmbAudioFormat = new JComboBox<>(new String[]{"mp3", "m4a", "wav"});
+    cmbAudioFormat.setEnabled(false);
+    pnlCard.add(cmbAudioFormat, "h 30!");
+
+    btnDownload = new JButton("DOWNLOAD");
+    btnDownload.setBackground(Color.decode("#fb3f62"));
+    btnDownload.setForeground(Color.WHITE);
+    btnDownload.setFont(new Font("Montserrat", Font.BOLD, 12));
+    btnDownload.putClientProperty("JButton.buttonType", "roundRect");
+    pnlCard.add(btnDownload, "h 45!, gaptop 15");
+
+    progressBar = new JProgressBar(0, 100);
+    progressBar.setStringPainted(true);
+    pnlCard.add(progressBar, "h 20!, gaptop 10");
+    
+    lblNotification = new JLabel("");
+    lblNotification.setFont(new Font("Montserrat", Font.PLAIN, 12));
+    lblNotification.setHorizontalAlignment(SwingConstants.CENTER);
+    pnlCard.add(lblNotification, "h 20!, gaptop 5");
+
+    add(pnlCard, "grow");
+}
+```
+</Accordion>
+
+## Download Process
+
+### downloadVideo()
+
+Executes the download using a SwingWorker to keep the UI responsive.
+
+<Accordion title="Download Implementation">
+```java
+private void downloadVideo(String outputPath) {
+    btnDownload.setEnabled(false);
+    progressBar.setValue(0);
+    
+    SwingWorker<Void, String> worker = new SwingWorker<Void, String>() {
+        private boolean downloadSucceeded = false;
+        private String finalFileName = "";
+
+        @Override
+        protected Void doInBackground() throws Exception {
+            try {
+                String ytdlpExePath = props.getProperty("ytdlpPath", YTDLP_PATH);
+                String url = txtUrl.getText().trim();
+
+                List<String> cmd = new ArrayList<>();
+                cmd.add(ytdlpExePath);
+                cmd.add(url);
+                cmd.add("-o");
+                cmd.add(outputPath);
+                cmd.add("--no-playlist");
+                cmd.add("--newline");
+
+                if (chkOnlyAudio.isSelected()) {
+                    String selectedAudioFormat = (String) cmbAudioFormat.getSelectedItem();
+                    cmd.add("-x");
+                    cmd.add("--audio-format");
+                    cmd.add(selectedAudioFormat);
+                } else {
+                    String selectedResolution = (String) cmbResolucion.getSelectedItem();
+                    String formatSelector = chooseResolution(selectedResolution);
+                    cmd.add("-f");
+                    cmd.add(formatSelector);
+                    cmd.add("--merge-output-format");
+                    cmd.add("mp4");
+                }
+                
+                // Optional settings from preferences
+                String speedLimit = props.getProperty("speedLimit", "");
+                if (speedLimit != null && !speedLimit.trim().isEmpty()) {
+                    cmd.add("--limit-rate");
+                    cmd.add(speedLimit.trim());
+                }
+                
+                String tempPath = props.getProperty("tempDirPath", "");
+                if (tempPath != null && !tempPath.trim().isEmpty()) {
+                    cmd.add("--paths");
+                    cmd.add("temp:" + tempPath.trim());
+                }
+                
+                boolean createM3u = Boolean.parseBoolean(props.getProperty("createM3u", "false"));
+                if (createM3u) {
+                    cmd.add("--create-m3u");
+                }
+
+                ProcessBuilder pb = new ProcessBuilder(cmd);
+                pb.redirectErrorStream(true);
+                Process process = pb.start();
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.contains("[download] Destination:")) {
+                        String fullPath = line.split("Destination:")[1].trim();
+                        finalFileName = new File(fullPath).getName();
+                    } else if (line.contains("has already been downloaded")) {
+                        finalFileName = line.replace("[download] ", "").split(" has already")[0].trim();
+                        finalFileName = new File(finalFileName).getName();
+                    }
+                    publish(line);
+                }
+
+                int exitCode = process.waitFor();
+                if (exitCode == 0) {
+                    publish("Download completed successfully!");
+                    downloadSucceeded = true;
+                } else {
+                    publish("Download failed with exit code: " + exitCode);
+                }
+            } catch (IOException | InterruptedException e) {
+                publish("Error: " + e.getMessage());
+            }
+            return null;
+        }
+
+        @Override
+        protected void process(List<String> chunks) {
+            for (String line : chunks) {
+                Pattern pattern = Pattern.compile("\\[download\\]\\s+(\\d+\\.\\d+)%");
+                Matcher matcher = pattern.matcher(line);
+
+                if (matcher.find()) {
+                    try {
+                        double percentage = Double.parseDouble(matcher.group(1));
+                        int valor = (int) percentage;
+
+                        if (valor >= 0 && valor <= 100) {
+                            progressBar.setValue(valor);
+                        }
+                    } catch (NumberFormatException e) {
+                        System.err.println("Error parsing progress percentage: " + e.getMessage());
+                    }
+                }
+            }
+        }
+
+        @Override
+        protected void done() {
+            btnDownload.setEnabled(true);
+            try {
+                get();
+                if (downloadSucceeded) {
+                    progressBar.setValue(100);
+                    lblNotification.setText("Download Finished!");
+                    lblNotification.setForeground(Color.decode("#fb3f62"));
+                    if (main.getLibraryPanel() != null) {
+                        main.getLibraryPanel().loadMedia(finalFileName);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Error on worker completion: " + e.getMessage());
+            }
+        }
+    };
+    worker.execute();
+}
+```
+</Accordion>
+
+## Progress Parsing
+
+The panel parses yt-dlp output to extract download progress:
+
+```java
+Pattern pattern = Pattern.compile("\\[download\\]\\s+(\\d+\\.\\d+)%");
+Matcher matcher = pattern.matcher(line);
+
+if (matcher.find()) {
+    double percentage = Double.parseDouble(matcher.group(1));
+    int valor = (int) percentage;
+    if (valor >= 0 && valor <= 100) {
+        progressBar.setValue(valor);
+    }
+}
+```
+
+## Resolution Selection
+
+### chooseResolution()
+
+Converts user-friendly resolution labels to yt-dlp format selectors.
+
+```java
+private String chooseResolution(String selected) {
+    if (selected.contains("1080")) {
+        return "bv*[height<=1080]+ba/b[height<=1080]";
+    }
+    if (selected.contains("720")) {
+        return "bv*[height<=720]+ba/b[height<=720]";
+    }
+    if (selected.contains("480")) {
+        return "bv*[height<=480]+ba/b[height<=480]";
+    }
+    return "bestvideo+bestaudio/best";
+}
+```
+
+## URL Validation
+
+Before starting download, the panel validates the URL:
+
+```java
+String url = txtUrl.getText().trim();
+if (url.isEmpty()) {
+    lblNotification.setText("Please, insert a URL to download.");
+    lblNotification.setForeground(Color.decode("#fb3f62"));
+    txtUrl.putClientProperty("JComponent.outline", "error");
+    return;
+}
+if (!url.startsWith("https://")) {
+    lblNotification.setText("Invalid URL. Please, enter a valid URL.");
+    lblNotification.setForeground(Color.decode("#fb3f62"));
+    txtUrl.putClientProperty("JComponent.outline", "error");
+    return;
+}
+```
+
+## Integration
+
+After successful download, the panel:
+1. Updates the progress bar to 100%
+2. Displays a success notification
+3. Triggers `libraryPanel.loadMedia(finalFileName)` to refresh the library and auto-select the new file

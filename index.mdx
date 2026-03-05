@@ -1,97 +1,154 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: Welcome to Tubify
+description: Cloud-enabled GUI downloader for yt-dlp built with Java Swing
 ---
 
-## Setting up
+<div className="hero" style={{
+  background: 'linear-gradient(135deg, #418f45 0%, #9ac0a4 100%)',
+  borderRadius: '4px',
+  padding: '3rem 2rem',
+  textAlign: 'center',
+  color: '#ffffff',
+  marginBottom: '3rem'
+}}>
+  <h1 style={{
+    fontSize: '2.5rem',
+    fontWeight: '700',
+    marginBottom: '1rem',
+    color: '#ffffff'
+  }}>
+    Tubify
+  </h1>
+  <p style={{
+    fontSize: '1.25rem',
+    marginBottom: '2rem',
+    color: '#eff8ef'
+  }}>
+    Cloud-enabled GUI downloader for yt-dlp built with Java Swing
+  </p>
+  <div style={{
+    display: 'flex',
+    gap: '1rem',
+    justifyContent: 'center',
+    flexWrap: 'wrap'
+  }}>
+    <a href="/quickstart" style={{
+      background: '#4CAF50',
+      color: '#ffffff',
+      padding: '0.75rem 1.5rem',
+      borderRadius: '4px',
+      textDecoration: 'none',
+      fontWeight: '600',
+      display: 'inline-block'
+    }}>
+      Get Started
+    </a>
+    <a href="https://github.com/Perelluent/Tubify" style={{
+      background: 'rgba(255, 255, 255, 0.2)',
+      color: '#ffffff',
+      padding: '0.75rem 1.5rem',
+      borderRadius: '4px',
+      textDecoration: 'none',
+      fontWeight: '600',
+      display: 'inline-block'
+    }}>
+      View on GitHub
+    </a>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+## Overview
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+Tubify is a modern desktop application that provides a user-friendly graphical interface for the powerful yt-dlp command-line tool. Download videos and audio from multiple platforms with ease, manage your media library, and sync files to the cloud.
 
-## Make it yours
+## Key Features
 
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Multi-Platform Downloads" icon="download" href="/features/downloading">
+    Download videos and audio from multiple platforms via yt-dlp with a simple interface
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Cloud Synchronization" icon="cloud" href="/features/cloud-sync">
+    Sync your media files to the cloud with JWT authentication and access from anywhere
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Modern UI" icon="palette" href="/features/theme-customization">
+    Beautiful dark and light themes with FlatLaf design library and custom fonts
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Library Management" icon="folder" href="/features/library-management">
+    Organize and manage both local and cloud files in a unified interface
   </Card>
-</Columns>
+  <Card title="Real-Time Progress" icon="gauge-high" href="/features/downloading">
+    Track download progress in real-time with visual feedback and status updates
+  </Card>
+  <Card title="Audio Extraction" icon="music" href="/features/downloading">
+    Extract audio in multiple formats (MP3, M4A, WAV) with quality selection
+  </Card>
+</CardGroup>
 
-## Create beautiful pages
+## Quick Start
 
-Everything you need to create world-class documentation.
+<Steps>
+  <Step title="Install Dependencies">
+    Download and install yt-dlp and optionally FFmpeg for audio extraction
+    
+    ```bash
+    # Download yt-dlp from GitHub releases
+    https://github.com/yt-dlp/yt-dlp/releases
+    
+    # Download FFmpeg (optional, for audio extraction)
+    https://ffmpeg.org/download.html
+    ```
+  </Step>
+  
+  <Step title="Build and Run">
+    Build the project with Maven and launch the application
+    
+    ```bash
+    mvn clean package
+    java -jar target/Tubify-1.0-SNAPSHOT.jar
+    ```
+  </Step>
+  
+  <Step title="Configure Settings">
+    Set your yt-dlp binary path and download folder in Preferences
+  </Step>
+  
+  <Step title="Start Downloading">
+    Paste a video URL and click Download to save media to your library
+  </Step>
+</Steps>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## Technology Stack
 
-## Need inspiration?
+Tubify is built with modern Java technologies:
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+- **Java Swing** - Desktop GUI framework (JDK 24)
+- **FlatLaf** - Modern look and feel library
+- **MigLayout** - Flexible layout manager for responsive UI
+- **MediaPollingBean** - Custom Java Bean for cloud integration
+- **yt-dlp** - Powerful media downloader
+- **FFmpeg** - Audio/video processing
+
+## Architecture Highlights
+
+- **Multi-threading with SwingWorker** - Non-blocking UI during downloads
+- **Real-time polling** - Automatic cloud sync with server updates
+- **Regex-based search** - Dynamic table filtering as you type
+- **JWT authentication** - Secure cloud access with token persistence
+- **Event-driven design** - Responsive UI with custom event listeners
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation Guide" icon="download" href="/installation">
+    Complete setup instructions for all dependencies
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get up and running in minutes
+  </Card>
+  <Card title="Components Reference" icon="code" href="/components/main-window">
+    Explore the UI panels and data models
+  </Card>
+  <Card title="Cloud Integration" icon="cloud" href="/cloud/overview">
+    Learn about MediaPollingBean and cloud sync
+  </Card>
+</CardGroup>

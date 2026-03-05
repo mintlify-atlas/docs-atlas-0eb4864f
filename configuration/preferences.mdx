@@ -1,0 +1,148 @@
+---
+title: 'Preferences'
+description: 'Configure Tubify application settings including paths, download options, and performance'
+---
+
+## Overview
+
+The Preferences panel provides centralized control over all user-configurable Tubify settings. Access it from the menu bar by selecting **Edit > Preferences**, or by using the keyboard shortcut if configured.
+
+<Note>
+All preferences are automatically saved to a properties file when you click "SAVE & CLOSE". Changes take effect immediately.
+</Note>
+
+## Accessing Preferences
+
+To open the Preferences panel:
+
+1. Launch Tubify and log in
+2. Click **Edit** in the menu bar
+3. Select **Preferences**
+
+The preferences panel will replace the main window view. Click **SAVE & CLOSE** to save your changes and return to the main application.
+
+## Available Settings
+
+### Download Folder
+
+<ParamField path="libraryPath" type="string">
+  The directory where downloaded media files will be stored. This is your main library location.
+  
+  **Default:** System Downloads folder (typically `C:\Users\YourName\Downloads` on Windows)
+  
+  Click **Browse...** to select a different folder using the file chooser dialog.
+</ParamField>
+
+### Temporary Files
+
+<ParamField path="tempDirPath" type="string">
+  The directory used by yt-dlp for temporary files during the download process.
+  
+  **Default:** Empty (yt-dlp uses system default)
+  
+  Click **Browse...** to specify a custom temporary directory. This can be useful for:
+  - Using a faster SSD for temporary operations
+  - Keeping temporary files separate from your main downloads
+  - Managing disk space on multi-drive systems
+</ParamField>
+
+### YT-DLP Path
+
+<ParamField path="ytdlpPath" type="string">
+  The full path to the yt-dlp executable file.
+  
+  **Default:** `%LOCALAPPDATA%\yt-dlp\yt-dlp.exe` (Windows)
+  
+  Click **Browse...** to select the yt-dlp executable if it's installed in a non-standard location.
+</ParamField>
+
+<Warning>
+If Tubify cannot find yt-dlp at the specified path, downloads will fail. Ensure the path points to a valid yt-dlp executable.
+</Warning>
+
+### Create .m3u Playlist Files
+
+<ParamField path="createM3u" type="boolean">
+  When enabled, Tubify automatically creates `.m3u` playlist files for downloaded media.
+  
+  **Default:** Disabled
+  
+  Enable this option if you want to import your downloads into media players that support M3U playlists.
+</ParamField>
+
+### Speed Limit
+
+<ParamField path="speedLimit" type="string">
+  Limits the download speed to prevent bandwidth saturation.
+  
+  **Options:**
+  - **500K** - Limits download speed to 500 KB/s
+  - **2M** - Limits download speed to 2 MB/s
+  - **None** - No speed limit (default)
+  
+  Select a radio button to apply the speed limit. Deselect both options for unlimited speed.
+</ParamField>
+
+<Note>
+Speed limits are passed directly to yt-dlp and apply per download operation.
+</Note>
+
+## Settings Persistence
+
+All preferences are stored in a properties file on your system:
+
+**Location:** `TubifySettings.properties` in your user home directory
+
+```
+%USERPROFILE%\TubifySettings.properties  (Windows)
+~/TubifySettings.properties              (Linux/Mac)
+```
+
+The properties file is automatically created the first time you save preferences. It uses standard Java Properties format:
+
+```properties
+# Tubify Application Settings
+ytdlpPath=C:\\Users\\YourName\\AppData\\Local\\yt-dlp\\yt-dlp.exe
+tempDirPath=
+speedLimit=500K
+createM3u=true
+libraryPath=C:\\Users\\YourName\\Downloads
+```
+
+<Accordion title="Properties File Details">
+  The properties file is managed by the `MainWindow.java` class through two key methods:
+  
+  - `savePreferences()` (MainWindow.java:199) - Writes current settings to disk
+  - `loadPreferences()` (MainWindow.java:223) - Reads settings from disk at startup
+  
+  The file is read when Tubify starts and written when you click "SAVE & CLOSE" in the Preferences panel or when you exit the application via **File > Exit**.
+</Accordion>
+
+## Initial Configuration
+
+When Tubify runs for the first time, the properties file doesn't exist yet. The application uses these defaults:
+
+- **YT-DLP Path:** `%LOCALAPPDATA%\yt-dlp\yt-dlp.exe` (MainWindow.java:49)
+- **Library Path:** System Downloads folder
+- **Temporary Files:** Empty (not set)
+- **Create M3U:** Disabled
+- **Speed Limit:** None
+
+The properties file is created when you first save preferences or exit the application.
+
+## Implementation Details
+
+The Preferences panel is implemented in `Preferences.java` and integrates with the main application window:
+
+```java
+// Accessing preference values from other components
+String libraryPath = preferences.getLibraryPath();
+String ytdlpPath = preferences.getYtdlpPath();
+String tempDir = preferences.getTempDirPath();
+boolean createM3u = preferences.isM3uCreationEnabled();
+String speedLimit = preferences.getSelectedSpeedLimit();
+```
+
+<Note>
+Preferences are loaded automatically at startup (MainWindow.java:87) before any download operations can begin.
+</Note>

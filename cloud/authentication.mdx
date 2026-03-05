@@ -1,0 +1,231 @@
+---
+title: 'Authentication'
+description: 'Secure user authentication with JWT tokens and session persistence'
+---
+
+## Overview
+
+MediaPollingBean uses **JWT (JSON Web Token)** authentication to secure all API requests. Tubify implements a complete authentication flow with token persistence and "Remember Me" functionality.
+
+## Authentication Flow
+
+<Steps>
+  <Step title="User enters credentials">
+    The user provides their email and password in the LoginPanel.
+  </Step>
+  <Step title="Login request">
+    The application calls `mediaPollingBean.login(email, password)` to authenticate.
+  </Step>
+  <Step title="Token received">
+    If credentials are valid, the server returns a JWT token.
+  </Step>
+  <Step title="Token stored">
+    The token is stored in MediaPollingBean and optionally persisted locally.
+  </Step>
+  <Step title="Authenticated requests">
+    All subsequent API calls use the token for authorization.
+  </Step>
+</Steps>
+
+## Login Implementation
+
+Here's how Tubify implements the login process:
+
+```java LoginPanel.java
+private void btnLoginActionPerformed(ActionEvent evt) throws Exception {
+    String email = txtUser.getText();
+    var password = new String(pswPassword.getPassword());
+    lblError.setText("");
+    
+    try {
+        // Authenticate with MediaPollingBean
+        String token = mediaPollingBean.login(email, password);
+        mainWindow.setToken(token);
+        
+        // Handle "Remember Me" functionality
+        if (chkRememberMe.isSelected()) {
+            prefs.put(prefEmail, email);
+            prefs.put(prefToken, token);
+            prefs.putBoolean(prefRememberMe, true);
+        } else {
+            // Clear stored credentials if unchecked
+            prefs.remove(prefEmail);
+            prefs.remove(prefToken);
+            prefs.putBoolean(prefRememberMe, false);
+        }
+        
+        mainWindow.showMainWindow();
+    } catch (Exception e) {
+        lblError.setText("Login failed. Please check your username and password.");
+        e.printStackTrace();
+    }
+}
+```
+
+**Reference:** [LoginPanel.java:186-210](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/LoginPanel.java:186)
+
+## Token Persistence
+
+Tubify uses Java's `Preferences` API to persist authentication tokens locally:
+
+```java LoginPanel.java
+// Store user preferences
+private final Preferences prefs = Preferences.userNodeForPackage(es.perelluent.tubify.LoginPanel.class);
+private final String prefEmail = "user_email";
+private final String prefToken = "user_token";
+private final String prefRememberMe = "remember_me_check";
+```
+
+**Reference:** [LoginPanel.java:51-54](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/LoginPanel.java:51)
+
+<Note>
+  The `Preferences` API stores data securely in a platform-specific location:
+  - **Windows**: Registry
+  - **Linux**: `~/.java/.userPrefs/`
+  - **macOS**: `~/Library/Preferences/`
+</Note>
+
+## "Remember Me" Functionality
+
+When the application starts, it checks if the user previously selected "Remember Me":
+
+```java LoginPanel.java
+public void checkRememberMe() {
+    boolean remember = prefs.getBoolean(prefRememberMe, false);
+    if (remember) {
+        String savedEmail = prefs.get(prefEmail, "");
+        String savedToken = prefs.get(prefToken, "");
+        
+        if (!savedToken.isEmpty()) {
+            try {
+                // Set the token and attempt auto-login
+                mediaPollingBean.setToken(savedToken);
+                mainWindow.setToken(savedToken);
+                mainWindow.showMainWindow();
+                return;
+            } catch (Exception e) {
+                // Token expired or invalid
+                prefs.remove(prefToken);
+                lblError.setText("Session expired. Please login again.");
+                System.out.println("Token validation failed: " + e.getMessage());
+            }
+        }
+        // Pre-fill email if remembered
+        txtUser.setText(savedEmail);
+        chkRememberMe.setSelected(true);
+    }
+}
+```
+
+**Reference:** [LoginPanel.java:153-174](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/LoginPanel.java:153)
+
+<Note>
+  This method is called from MainWindow's constructor to enable automatic session restoration.
+</Note>
+
+## Logout Process
+
+When the user logs out, Tubify clears the token from both MediaPollingBean and local storage:
+
+```java LibraryPanel.java
+private void btnLogoutActionPerformed(java.awt.event.ActionEvent evt) {
+    int response = JOptionPane.showConfirmDialog(
+        this,
+        "Are you sure you want to log out?",
+        "Confirm Logout",
+        JOptionPane.YES_NO_OPTION
+    );
+    
+    if (response == JOptionPane.YES_OPTION) {
+        try {
+            // Stop polling and clear token
+            main.getMediaPollingBean().setRunning(false);
+            main.getMediaPollingBean().setToken(null);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        this.token = null;
+        loginPanel.clearTextAreas();
+        main.showLoginPanel();
+    }
+}
+```
+
+**Reference:** [LibraryPanel.java:397-408](/home/daytona/workspace/source/src/main/java/es/perelluent/tubify/LibraryPanel.java:397)
+
+## Security Considerations
+
+<Warning>
+  **Important Security Practices:**
+  
+  1. **Never log tokens**: Avoid printing JWT tokens to console or log files
+  2. **Handle expiration**: Always catch exceptions when using stored tokens (they may be expired)
+  3. **Clear on logout**: Remove tokens from both memory and persistent storage
+  4. **HTTPS only**: Ensure the API URL uses HTTPS for encrypted communication
+</Warning>
+
+## Token Usage in API Calls
+
+Once authenticated, the token is automatically included in all API requests:
+
+```java
+// The token is set once during login
+mediaPollingBean.setToken(token);
+
+// All subsequent API calls use this token automatically
+List<Media> cloudList = mediaPollingBean.getAllMedia();
+mediaPollingBean.download(media.id, destFile);
+mediaPollingBean.uploadFileMultipart(file, url);
+```
+
+## Error Handling
+
+Handle authentication errors gracefully:
+
+```java
+try {
+    String token = mediaPollingBean.login(email, password);
+    // Success - proceed with authenticated session
+} catch (Exception e) {
+    // Failed authentication
+    // Show error message to user
+    lblError.setText("Login failed. Please check your username and password.");
+    
+    // Clear any stored credentials
+    prefs.remove(prefToken);
+}
+```
+
+## Integration Checklist
+
+<Steps>
+  <Step title="Initialize MediaPollingBean">
+    Create an instance and set the API URL
+  </Step>
+  <Step title="Create login UI">
+    Design a form with email, password, and "Remember Me" fields
+  </Step>
+  <Step title="Call login method">
+    Use `mediaPollingBean.login(email, password)` to authenticate
+  </Step>
+  <Step title="Store token">
+    Save the returned token in MediaPollingBean and optionally persist it
+  </Step>
+  <Step title="Handle auto-login">
+    Check for stored tokens on application startup
+  </Step>
+  <Step title="Implement logout">
+    Clear tokens and return user to login screen
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/cloud/configuration">
+    Configure MediaPollingBean properties
+  </Card>
+  <Card title="API Methods" icon="code" href="/cloud/api-methods">
+    Learn about available API methods
+  </Card>
+</CardGroup>

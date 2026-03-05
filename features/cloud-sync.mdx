@@ -1,0 +1,556 @@
+---
+title: 'Cloud Synchronization'
+description: 'Sync your media library across devices with cloud storage integration'
+icon: 'cloud'
+---
+
+Tubify provides seamless cloud integration powered by the MediaPollingBean component, enabling you to access your media library from anywhere, upload files for remote access, and automatically synchronize new additions across devices.
+
+## Cloud Integration Overview
+
+The cloud synchronization system is built on a custom Java Bean component called [MediaPollingBean](https://github.com/Perelluent/MediaPollingBean), which provides:
+
+- **JWT-based authentication** for secure access
+- **Real-time polling** for automatic updates
+- **Multipart file uploads** for large media files
+- **Background synchronization** without blocking the UI
+
+<Note>
+  Cloud features require authentication with a valid account on the Tubify backend service.
+</Note>
+
+## MediaPollingBean Configuration
+
+The MediaPollingBean is configured in `MainWindow.java` during application startup:
+
+```java
+// MainWindow.java:72-74
+mediaPollingBean = new MediaPollingBean();
+mediaPollingBean.setApiUrl("https://difreenet9.azurewebsites.net");
+mediaPollingBean.setPollingInterval(30);
+```
+
+### Configuration Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| **apiUrl** | String | Base URL of the backend API (Azure-hosted) |
+| **pollingInterval** | int | Seconds between server checks (default: 30) |
+| **running** | boolean | Controls the background polling service |
+| **token** | String | JWT Bearer token for authenticated requests |
+
+<Accordion title="Why 30 second polling?">
+  The 30-second interval balances responsiveness with server load. It's frequent enough to feel real-time while preventing excessive API calls.
+</Accordion>
+
+## Authentication System
+
+Tubify uses JWT (JSON Web Token) authentication to secure all cloud operations.
+
+### Login Panel
+
+The `LoginPanel.java` provides the authentication interface with:
+
+<Tabs>
+  <Tab title="Email Field">
+    ```java
+    // LoginPanel.java:95-97
+    txtUser = new JTextField();
+    txtUser.putClientProperty("JTextField.placeholderText", "Email");
+    txtUser.putClientProperty("FlatLaf.style", "arc: 15");
+    ```
+  </Tab>
+  
+  <Tab title="Password Field">
+    ```java
+    // LoginPanel.java:99-101
+    pswPassword = new JPasswordField();
+    pswPassword.putClientProperty("JTextField.placeholderText", "Password");
+    pswPassword.putClientProperty("FlatLaf.style", "arc: 15");
+    ```
+  </Tab>
+  
+  <Tab title="Remember Me">
+    ```java
+    // LoginPanel.java:104-105
+    chkRememberMe = new JCheckBox("Remember Me");
+    chkRememberMe.setOpaque(false);
+    ```
+  </Tab>
+</Tabs>
+
+### Login Process
+
+The login flow authenticates users and stores the JWT token:
+
+```java
+// LoginPanel.java:186-210
+private void btnLoginActionPerformed(ActionEvent evt) throws Exception {
+    String email = txtUser.getText();
+    var password = new String(pswPassword.getPassword());
+    lblError.setText("");
+    
+    try {
+        // Authenticate with MediaPollingBean
+        String token = mediaPollingBean.login(email, password);
+        mainWindow.setToken(token);
+        
+        // Handle "Remember Me" preference
+        if (chkRememberMe.isSelected()) {
+            prefs.put(prefEmail, email);
+            prefs.put(prefToken, token);
+            prefs.putBoolean(prefRememberMe, true);
+        } else {
+            // Clear saved credentials
+            prefs.remove(prefEmail);
+            prefs.remove(prefToken);
+            prefs.putBoolean(prefRememberMe, false);
+        }
+        
+        mainWindow.showMainWindow();
+    } catch (Exception e) {
+        lblError.setText("Login failed. Please check your username and password.");
+        e.printStackTrace();
+    }
+}
+```
+
+<Steps>
+  <Step title="User enters credentials">
+    Email and password are captured from the text fields.
+  </Step>
+  
+  <Step title="MediaPollingBean authenticates">
+    The `login()` method sends credentials to the API and receives a JWT token.
+  </Step>
+  
+  <Step title="Token is stored">
+    The token is saved in MainWindow and optionally in preferences.
+  </Step>
+  
+  <Step title="UI transitions to main window">
+    Upon success, the user is taken to the main application interface.
+  </Step>
+</Steps>
+
+### JWT Token Storage
+
+Tokens are stored in two locations:
+
+1. **In-memory**: `MainWindow.token` for current session
+2. **Persistent**: Java Preferences API for "Remember Me" functionality
+
+```java
+// LoginPanel.java:51-54
+private final Preferences prefs = Preferences.userNodeForPackage(es.perelluent.tubify.LoginPanel.class);
+private final String prefEmail = "user_email";
+private final String prefToken = "user_token";
+private final String prefRememberMe = "remember_me_check";
+```
+
+## Remember Me Functionality
+
+The "Remember Me" feature provides automatic login on application restart.
+
+### Checking Saved Credentials
+
+On startup, the login panel checks for saved credentials:
+
+```java
+// LoginPanel.java:153-174
+public void checkRememberMe() {
+    boolean remember = prefs.getBoolean(prefRememberMe, false);
+    if (remember) {
+        String savedEmail = prefs.get(prefEmail, "");
+        String savedToken = prefs.get(prefToken, "");
+        
+        if (!savedToken.isEmpty()) {
+            try {
+                // Validate token and auto-login
+                mediaPollingBean.setToken(savedToken);
+                mainWindow.setToken(savedToken);
+                mainWindow.showMainWindow();
+                return;
+            } catch (Exception e) {
+                // Token expired or invalid
+                prefs.remove(prefToken);
+                lblError.setText("Session expired. Please login again.");
+                System.out.println("Token validation failed: " + e.getMessage());
+            }
+        }
+        
+        // Restore email and checkbox state
+        txtUser.setText(savedEmail);
+        chkRememberMe.setSelected(true);
+    }
+}
+```
+
+<Warning>
+  If the saved token is expired or invalid, it's automatically removed and the user must log in again.
+</Warning>
+
+### Security Considerations
+
+The Remember Me feature:
+- Stores tokens using Java's Preferences API (platform-specific secure storage)
+- Validates tokens on startup before auto-login
+- Clears tokens immediately on logout
+- Allows users to opt-out by unchecking the box
+
+## Uploading Files
+
+Files can be uploaded to the cloud directly from the Library Panel.
+
+### Upload Process
+
+The upload operation uses SwingWorker for background processing:
+
+```java
+// LibraryPanel.java:441-474
+SwingWorker<Void, Void> worker = new SwingWorker<>() {
+    @Override
+    protected Void doInBackground() throws Exception {
+        File fileToUpload = new File(item.getLocalFile().getFilePath());
+        
+        if (!fileToUpload.exists()) {
+            throw new FileNotFoundException("File not found: " + fileToUpload.getAbsolutePath());
+        }
+        
+        // Upload via MediaPollingBean
+        main.getMediaPollingBean().uploadFileMultipart(fileToUpload, "");
+        return null;
+    }
+    
+    @Override
+    protected void done() {
+        try {
+            get();
+            JOptionPane.showMessageDialog(LibraryPanel.this,
+                    "Upload Successful!",
+                    "Success", JOptionPane.INFORMATION_MESSAGE);
+            
+            // Reload library to show cloud status
+            loadMedia();
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(LibraryPanel.this,
+                    "Upload Failed: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+};
+worker.execute();
+```
+
+### Upload Validation
+
+Before uploading, Tubify validates:
+
+```java
+// LibraryPanel.java:425-439
+// Must have local file
+if (item.getLocalFile() == null) {
+    JOptionPane.showMessageDialog(this,
+            "This file is only in the Cloud. You cannot upload it again.",
+            "Upload Error", JOptionPane.WARNING_MESSAGE);
+    return;
+}
+
+// Must not already be in cloud
+if (item.getCloudMedia() != null) {
+    javax.swing.JOptionPane.showMessageDialog(this,
+            "This file is already synchronized with the Cloud.",
+            "Info", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+    return;
+}
+```
+
+<Note>
+  Only local files that are not already synchronized can be uploaded. This prevents duplicate uploads.
+</Note>
+
+## Downloading from Cloud
+
+Cloud files can be streamed directly or downloaded for offline access.
+
+### Streaming Cloud Media
+
+When playing cloud-only files, Tubify streams them via temporary download:
+
+```java
+// LibraryPanel.java:526-563
+private void playCloudMedia(Media media) {
+    SwingWorker<File, Void> worker = new SwingWorker<>() {
+        @Override
+        protected File doInBackground() throws Exception {
+            // Create temporary file with correct extension
+            String ext = media.mediaFileName.contains(".")
+                    ? media.mediaFileName.substring(media.mediaFileName.lastIndexOf(".")) 
+                    : ".tmp";
+            File tempFile = File.createTempFile("tubify_stream_", ext);
+            tempFile.deleteOnExit();
+            
+            // Download from cloud
+            main.getMediaPollingBean().download(media.id, tempFile);
+            
+            return tempFile;
+        }
+        
+        @Override
+        protected void done() {
+            try {
+                File tempFile = get();
+                Desktop.getDesktop().open(tempFile);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(LibraryPanel.this,
+                        "Error streaming file: " + ex.getMessage());
+                ex.printStackTrace();
+            }
+        }
+    };
+    
+    // Show wait cursor during download
+    this.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR));
+    worker.addPropertyChangeListener(evt -> {
+        if (javax.swing.SwingWorker.StateValue.DONE == evt.getNewValue()) {
+            this.setCursor(java.awt.Cursor.getDefaultCursor());
+        }
+    });
+    worker.execute();
+}
+```
+
+<Accordion title="Why use temporary files?">
+  Temporary files allow the system to:
+  - Preserve the correct file extension for media players
+  - Avoid cluttering the library directory
+  - Automatically clean up after use (via `deleteOnExit()`)
+  - Support repeat streaming without manual deletion
+</Accordion>
+
+## Real-Time Polling
+
+The MediaPollingBean continuously monitors the server for new media additions.
+
+### Polling Configuration
+
+Polling is started after successful login:
+
+```java
+// MainWindow.java:94
+mediaPollingBean.addMediaPollingBeanListener(this);
+```
+
+### Event Handling
+
+When new media is detected, the event fires and updates the library:
+
+```java
+// MainWindow.java:276-281
+@Override
+public void onNewMediaFound(MediaPollingBeanEvent evt) {
+    if (libraryPanel != null) {
+        libraryPanel.loadMedia();
+    }
+}
+```
+
+### How It Works
+
+<Steps>
+  <Step title="Timer-based polling">
+    Every 30 seconds, MediaPollingBean calls `getAllMedia()` on the API.
+  </Step>
+  
+  <Step title="Compare with previous state">
+    The bean compares the new list with the cached list from the previous poll.
+  </Step>
+  
+  <Step title="Fire event on change">
+    If new media is detected, `MediaPollingBeanEvent` is fired to all listeners.
+  </Step>
+  
+  <Step title="Update library UI">
+    The library panel reloads its data, merging cloud and local files.
+  </Step>
+</Steps>
+
+<Note>
+  Polling runs in a background thread and only updates the UI when changes are detected, minimizing performance impact.
+</Note>
+
+## Logout Process
+
+Logging out cleanly stops polling and clears authentication:
+
+```java
+// LibraryPanel.java:389-409
+private void btnLogoutActionPerformed(java.awt.event.ActionEvent evt) {
+    int response = JOptionPane.showConfirmDialog(
+            null,
+            "¿Are you sure you want to logout?",
+            "Logout",
+            JOptionPane.YES_NO_OPTION
+    );
+    
+    if (response == JOptionPane.YES_OPTION) {
+        try {
+            // Stop polling service
+            main.getMediaPollingBean().setRunning(false);
+            main.getMediaPollingBean().setToken(null);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        
+        // Clear session token
+        this.token = null;
+        
+        // Clear login fields and return to login panel
+        loginPanel.clearTextAreas();
+        main.showLoginPanel();
+    }
+}
+```
+
+### Clearing Credentials
+
+```java
+// LoginPanel.java:212-217
+public void clearTextAreas() {
+    prefs.remove(prefToken);
+    prefs.remove(prefEmail);
+    txtUser.setText("");
+    pswPassword.setText("");
+}
+```
+
+<Warning>
+  Logging out removes the saved token, so "Remember Me" will not function until you log in again.
+</Warning>
+
+## Cloud Status Indicators
+
+The library table displays origin icons showing where files are stored:
+
+- **Local only**: Files downloaded but not uploaded
+- **Cloud only**: Files available remotely but not on this device
+- **Both**: Synchronized files available locally and in the cloud
+
+```java
+// LibraryTableModel.java:59-61
+case 1: return item.getStatus(); // Returns origin status
+```
+
+The status is determined by the presence of local and cloud references in the `LibraryItem`.
+
+## MediaPollingBean API Methods
+
+The bean exposes several methods for cloud interaction:
+
+### Authentication
+
+```java
+// Login and receive JWT token
+String token = mediaPollingBean.login(email, password);
+```
+
+### Fetching Media
+
+```java
+// Get all media from cloud
+List<Media> cloudMedia = mediaPollingBean.getAllMedia();
+```
+
+### File Operations
+
+```java
+// Upload local file
+mediaPollingBean.uploadFileMultipart(fileToUpload, "");
+
+// Download cloud file
+mediaPollingBean.download(mediaId, destinationFile);
+```
+
+### Polling Control
+
+```java
+// Start/stop automatic polling
+mediaPollingBean.setRunning(true);  // Start
+mediaPollingBean.setRunning(false); // Stop
+
+// Manual poll trigger
+mediaPollingBean.startPolling();
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Use Remember Me for convenience">
+    Enable "Remember Me" on trusted devices to skip login on restart.
+  </Step>
+  
+  <Step title="Upload important files">
+    Keep backup copies of frequently used media in the cloud.
+  </Step>
+  
+  <Step title="Monitor synchronization">
+    Check the origin icons to verify files are properly synced.
+  </Step>
+  
+  <Step title="Logout on shared devices">
+    Always logout when using Tubify on public or shared computers.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<Accordion title="Login fails with valid credentials">
+  Check:
+  - Internet connection is active
+  - Backend API is accessible (https://difreenet9.azurewebsites.net)
+  - Email and password are correct
+  - No firewall blocking HTTPS requests
+</Accordion>
+
+<Accordion title="Auto-login not working">
+  Ensure:
+  - "Remember Me" was checked during last login
+  - You haven't manually logged out (clears saved token)
+  - The saved token hasn't expired
+</Accordion>
+
+<Accordion title="Upload fails repeatedly">
+  Verify:
+  - File exists locally and isn't in use by another program
+  - File isn't already in the cloud
+  - JWT token is still valid (try logging out and back in)
+  - Internet connection is stable
+</Accordion>
+
+<Accordion title="Cloud files not appearing">
+  Try:
+  - Logging out and back in to refresh the token
+  - Manually refreshing the library
+  - Checking the polling interval setting
+  - Verifying files were successfully uploaded from another device
+</Accordion>
+
+<Accordion title="New cloud files not auto-syncing">
+  The polling interval is 30 seconds. Wait up to 30 seconds for automatic detection, or manually refresh the library.
+</Accordion>
+
+## Security Features
+
+- **JWT tokens**: Industry-standard authentication
+- **HTTPS only**: All API communication is encrypted
+- **Secure storage**: Tokens stored using platform-specific secure preferences
+- **Token validation**: Expired tokens are detected and cleared
+- **Logout confirmation**: Prevents accidental logouts
+
+## Related Topics
+
+- [Library Management](/features/library-management) - Learn about the unified library view
+- [Downloading Media](/features/downloading) - Download files that automatically appear in your library
+- [Configuration](/configuration/preferences) - Configure application settings

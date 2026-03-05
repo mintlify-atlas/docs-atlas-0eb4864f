@@ -1,0 +1,303 @@
+---
+title: 'LoginPanel'
+description: 'Authentication panel with JWT token handling and remember me functionality'
+---
+
+## Overview
+
+`LoginPanel` handles user authentication within Tubify. It provides a modern login interface with email/password fields, "Remember Me" functionality using Java Preferences, and automatic session restoration.
+
+<ParamField body="Package" type="string">
+  `es.perelluent.tubify`
+</ParamField>
+
+<ParamField body="Extends" type="class">
+  `javax.swing.JPanel`
+</ParamField>
+
+## Class Signature
+
+```java
+public class LoginPanel extends JPanel
+```
+
+## UI Components
+
+<ResponseField name="txtUser" type="JTextField">
+  Text field for entering the user's email address
+</ResponseField>
+
+<ResponseField name="pswPassword" type="JPasswordField">
+  Password field with placeholder text
+</ResponseField>
+
+<ResponseField name="chkRememberMe" type="JCheckBox">
+  Checkbox to enable credential persistence using Java Preferences API
+</ResponseField>
+
+<ResponseField name="btnLogin" type="JButton">
+  Styled button that triggers authentication
+</ResponseField>
+
+<ResponseField name="lblError" type="JLabel">
+  Label for displaying authentication error messages in red text
+</ResponseField>
+
+<ResponseField name="lblLogo" type="JLabel">
+  Displays the Tubify logo at 280x120 pixels
+</ResponseField>
+
+## Dependencies
+
+<ResponseField name="mediaPollingBean" type="MediaPollingBean">
+  Service component responsible for authentication and cloud communication
+</ResponseField>
+
+<ResponseField name="mainWindow" type="MainWindow">
+  Reference to the parent window for navigation after successful login
+</ResponseField>
+
+## Constructor
+
+```java
+public LoginPanel(MediaPollingBean mediaPollingBean, MainWindow mainWindow)
+```
+
+Initializes the login panel with references to the media polling bean and main window.
+
+<Accordion title="Constructor Implementation">
+```java
+public LoginPanel(MediaPollingBean mediaPollingBean, MainWindow mainWindow) {
+    this.mediaPollingBean = mediaPollingBean;
+    this.mainWindow = mainWindow;
+    setLayout(new MigLayout("fill, insets 0", "[center]", "[center]"));
+    initComponents();
+}
+```
+</Accordion>
+
+## Preferences Storage
+
+The panel uses Java Preferences API to store user credentials:
+
+```java
+private final Preferences prefs = Preferences.userNodeForPackage(es.perelluent.tubify.LoginPanel.class);
+private final String prefEmail = "user_email";
+private final String prefToken = "user_token";
+private final String prefRememberMe = "remember_me_check";
+```
+
+## Component Initialization
+
+<Accordion title="initComponents() Method">
+```java
+private void initComponents() {
+    JPanel pnlForm = new JPanel(new MigLayout("wrap, insets 30, gapy 10", "[grow, fill]"));
+    pnlForm.putClientProperty("FlatLaf.style", "arc: 30");
+    pnlForm.setBackground(UIManager.getColor("EditorPane.background"));
+    pnlForm.setBorder(BorderFactory.createCompoundBorder(
+        new FlatLineBorder(new Insets(0, 0, 0, 0), Color.GRAY, 1, 20),
+        BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+
+    lblLogo = new JLabel();
+    if (imageUrl != null) {
+        ImageIcon icon = new ImageIcon(imageUrl);
+        lblLogo.setIcon(UpscaleIcon(icon, 280, 120));
+    }
+    lblLogo.setHorizontalAlignment(SwingConstants.CENTER);
+
+    // Text fields
+    txtUser = new JTextField();
+    txtUser.putClientProperty("JTextField.placeholderText", "Email");
+    txtUser.putClientProperty("FlatLaf.style", "arc: 15");
+
+    pswPassword = new JPasswordField();
+    pswPassword.putClientProperty("JTextField.placeholderText", "Password");
+    pswPassword.putClientProperty("FlatLaf.style", "arc: 15");
+
+    // Checkbox
+    chkRememberMe = new JCheckBox("Remember Me");
+    chkRememberMe.setOpaque(false);
+
+    // Login button
+    btnLogin = new JButton("LOGIN");
+    btnLogin.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    btnLogin.putClientProperty("JButton.buttonType", "roundRect");
+    btnLogin.setBackground(Color.decode("#fb3f62"));
+    btnLogin.setForeground(Color.WHITE);
+    btnLogin.addActionListener(e -> {
+        try {
+            btnLoginActionPerformed(e);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    });
+
+    // Error label
+    lblError = new JLabel("", SwingConstants.CENTER);
+    lblError.setForeground(Color.RED);
+    lblError.setFont(new Font("Montserrat-Regular", Font.BOLD, 9));
+
+    // Add components to panel
+    pnlForm.add(lblLogo, "align center, gapbottom 20");
+    pnlForm.add(new JLabel("User"), "gapleft 5");
+    pnlForm.add(txtUser, "h 40!");
+    pnlForm.add(new JLabel("Password"), "gapleft 5, gaptop 5");
+    pnlForm.add(pswPassword, "h 40!");
+    pnlForm.add(chkRememberMe, "left");
+    pnlForm.add(btnLogin, "h 45!, gaptop 10");
+    pnlForm.add(lblError, "h 20!");
+
+    add(pnlForm, "width 350!");
+}
+```
+</Accordion>
+
+## Authentication Flow
+
+### btnLoginActionPerformed()
+
+Handles the login process with the following steps:
+
+1. Retrieves email and password from input fields
+2. Calls `mediaPollingBean.login()` to authenticate
+3. Stores or clears credentials based on "Remember Me" state
+4. Updates the main window with the JWT token
+5. Navigates to the main window on success
+6. Displays error message on failure
+
+<Accordion title="Login Implementation">
+```java
+private void btnLoginActionPerformed(ActionEvent evt) throws Exception {
+    String email = txtUser.getText();
+    var password = new String(pswPassword.getPassword());
+    lblError.setText("");
+    
+    try {
+        String token = mediaPollingBean.login(email, password);
+        mainWindow.setToken(token);
+
+        if (chkRememberMe.isSelected()) {
+            prefs.put(prefEmail, email);
+            prefs.put(prefToken, token);
+            prefs.putBoolean(prefRememberMe, true);
+        } else {
+            // If unchecked, remove stored credentials
+            prefs.remove(prefEmail);
+            prefs.remove(prefToken);
+            prefs.putBoolean(prefRememberMe, false);
+        }
+
+        mainWindow.showMainWindow();
+    } catch (Exception e) {
+        lblError.setText("Login failed. Please check your username and password.");
+        e.printStackTrace();
+    }
+}
+```
+</Accordion>
+
+## Automatic Login
+
+### checkRememberMe()
+
+Called during application startup to restore previous sessions:
+
+<Accordion title="Auto-Login Implementation">
+```java
+public void checkRememberMe() {
+    boolean remember = prefs.getBoolean(prefRememberMe, false);
+    if (remember) {
+        String savedEmail = prefs.get(prefEmail, "");
+        String savedToken = prefs.get(prefToken, "");
+
+        if (!savedToken.isEmpty()) {
+            try {
+                mediaPollingBean.setToken(savedToken);
+                mainWindow.setToken(savedToken);
+                mainWindow.showMainWindow();
+                return;
+            } catch (Exception e) {
+                prefs.remove(prefToken);
+                lblError.setText("Session expired. Please login again.");
+                System.out.println("Token validation failed: " + e.getMessage());
+            }
+        }
+        txtUser.setText(savedEmail);
+        chkRememberMe.setSelected(true);
+    }
+}
+```
+</Accordion>
+
+This method is called from `MainWindow` constructor:
+
+```java
+// In MainWindow constructor
+loginPanel.checkRememberMe();
+```
+
+## Session Management
+
+### clearTextAreas()
+
+Clears credentials and resets the form (called during logout):
+
+```java
+public void clearTextAreas() {
+    prefs.remove(prefToken);
+    prefs.remove(prefEmail);
+    txtUser.setText("");
+    pswPassword.setText("");
+}
+```
+
+## JWT Token Flow
+
+1. User enters credentials and clicks "LOGIN"
+2. `mediaPollingBean.login(email, password)` sends credentials to backend
+3. Backend validates and returns JWT token
+4. Token is stored in:
+   - `MainWindow.token` (runtime state)
+   - `MediaPollingBean.token` (for API calls)
+   - `Preferences` (persistent storage if "Remember Me" is checked)
+5. Token is used for all subsequent API requests
+6. On logout, token is cleared from all locations
+
+## Error Feedback
+
+The panel provides visual feedback for authentication failures:
+
+```java
+lblError.setText("Login failed. Please check your username and password.");
+lblError.setForeground(Color.RED);
+```
+
+For expired sessions during auto-login:
+
+```java
+lblError.setText("Session expired. Please login again.");
+```
+
+## Styling with FlatLaf
+
+The panel uses FlatLaf properties for modern appearance:
+
+- **Rounded card**: `arc: 30` on the form panel
+- **Rounded inputs**: `arc: 15` on text fields
+- **Rounded button**: `buttonType: roundRect` on login button
+- **Custom border**: `FlatLineBorder` with rounded corners
+
+## Integration with MediaPollingBean
+
+After successful authentication:
+
+```java
+mediaPollingBean.setToken(token);
+mediaPollingBean.setRunning(true); // Starts polling for media updates
+```
+
+This enables:
+- Automatic synchronization of cloud media
+- Periodic polling for new media items
+- Upload/download functionality in LibraryPanel

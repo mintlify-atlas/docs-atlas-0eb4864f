@@ -1,0 +1,212 @@
+---
+title: 'Path Configuration'
+description: 'Understand and configure file paths for yt-dlp, downloads, and settings in Tubify'
+---
+
+## Overview
+
+Tubify relies on several key file paths for its operation. Understanding these paths is essential for troubleshooting and customizing your installation.
+
+## Critical Paths
+
+### YT-DLP Executable Path
+
+The location of the yt-dlp executable that Tubify uses to download media.
+
+<ParamField path="YTDLP_PATH" type="string" required>
+  **Default:** `System.getenv("LOCALAPPDATA") + "\\yt-dlp\\yt-dlp.exe"`
+  
+  **Windows Expansion:** `C:\Users\YourName\AppData\Local\yt-dlp\yt-dlp.exe`
+  
+  This default path assumes yt-dlp is installed in the standard Windows location using the recommended installation method.
+</ParamField>
+
+#### Implementation Details
+
+Defined in `MainWindow.java:49`:
+
+```java
+private final String YTDLP_PATH = System.getenv("LOCALAPPDATA") + "\\yt-dlp\\yt-dlp.exe";
+```
+
+<Warning>
+This path is Windows-specific. The application assumes yt-dlp is installed in the Local AppData directory.
+</Warning>
+
+#### Customizing the YT-DLP Path
+
+If yt-dlp is installed in a different location:
+
+1. Open **Edit > Preferences**
+2. Locate the **YT-DLP Path** field
+3. Click **Browse...** and navigate to your yt-dlp executable
+4. Click **SAVE & CLOSE**
+
+The custom path will be saved to your properties file and used for all future downloads.
+
+### Properties File Path
+
+The location where Tubify stores all user preferences.
+
+<ParamField path="PROPERTIES_PATH" type="string" required>
+  **Default:** `System.getProperty("user.home") + File.separator + "TubifySettings.properties"`
+  
+  **Windows:** `C:\Users\YourName\TubifySettings.properties`
+  
+  **Linux/Mac:** `/home/username/TubifySettings.properties` or `~/TubifySettings.properties`
+  
+  This path is platform-independent and automatically adapts to the operating system.
+</ParamField>
+
+#### Implementation Details
+
+Defined in `MainWindow.java:51`:
+
+```java
+private final String PROPERTIES_PATH = System.getProperty("user.home") 
+    + File.separator + "TubifySettings.properties";
+```
+
+The `File.separator` ensures the path works correctly on Windows (`\`), Linux, and macOS (`/`).
+
+<Note>
+The properties file is automatically created in your home directory the first time you save preferences. You don't need to create it manually.
+</Note>
+
+### Library/Download Folder Path
+
+The directory where downloaded media files are saved.
+
+<ParamField path="libraryPath" type="string" required>
+  **Default:** System Downloads folder
+  
+  **Windows:** Typically `C:\Users\YourName\Downloads`
+  
+  **Linux/Mac:** Typically `/home/username/Downloads` or `~/Downloads`
+  
+  Determined at runtime using `JFileChooser.getFileSystemView().getDefaultDirectory().getPath()` (MainWindow.java:225)
+</ParamField>
+
+#### Changing the Library Path
+
+To store your media files in a different location:
+
+1. Open **Edit > Preferences**
+2. Locate the **Download Folder** field
+3. Click **Browse...** and select your desired folder
+4. Click **SAVE & CLOSE**
+
+Your custom library path is saved to the properties file.
+
+### Temporary Files Path
+
+<ParamField path="tempDirPath" type="string">
+  **Default:** Empty (uses yt-dlp's default temporary location)
+  
+  When set, yt-dlp uses this directory for temporary files during the download process.
+  
+  This is optional and only needs to be configured if you want to control where temporary files are stored.
+</ParamField>
+
+## Platform Considerations
+
+### Windows
+
+Tubify is primarily designed for Windows, as evidenced by the yt-dlp default path:
+
+```java
+System.getenv("LOCALAPPDATA") + "\\yt-dlp\\yt-dlp.exe"
+```
+
+**Key Windows Paths:**
+- `%LOCALAPPDATA%` = `C:\Users\YourName\AppData\Local`
+- `%USERPROFILE%` = `C:\Users\YourName`
+
+<Warning>
+The `LOCALAPPDATA` environment variable is Windows-specific. On other operating systems, this will be `null` and you must manually configure the yt-dlp path.
+</Warning>
+
+### Linux and macOS
+
+While the properties file path uses `System.getProperty("user.home")` which is cross-platform, the yt-dlp path defaults to a Windows location.
+
+**Manual Configuration Required:**
+
+1. Install yt-dlp using your preferred method (pip, brew, package manager)
+2. Launch Tubify and open Preferences
+3. Set the **YT-DLP Path** to your installation location:
+   - Linux: `/usr/local/bin/yt-dlp` or `/usr/bin/yt-dlp`
+   - macOS: `/usr/local/bin/yt-dlp` or `/opt/homebrew/bin/yt-dlp`
+4. Save preferences
+
+<Note>
+On Unix-like systems, you can find the yt-dlp path by running `which yt-dlp` in a terminal.
+</Note>
+
+## Path Storage in Properties File
+
+When you configure custom paths, they are stored in the properties file:
+
+```properties
+# Tubify Application Settings
+ytdlpPath=C:\\Tools\\yt-dlp.exe
+tempDirPath=D:\\Temp
+libraryPath=D:\\Media\\Downloads
+```
+
+<Accordion title="Path Escaping in Properties Files">
+  Windows paths require double backslashes (`\\`) in the properties file because the backslash is an escape character in Java properties format.
+  
+  The application automatically handles this escaping when saving and loading paths.
+</Accordion>
+
+## Path Resolution at Runtime
+
+When Tubify starts, it loads paths in this order:
+
+1. **Check if properties file exists** (MainWindow.java:224)
+2. **If file doesn't exist:**
+   - Use `YTDLP_PATH` constant for yt-dlp (MainWindow.java:227)
+   - Use system Downloads folder for library path (MainWindow.java:228)
+3. **If file exists:**
+   - Load `ytdlpPath` from properties, or fall back to `YTDLP_PATH` constant (MainWindow.java:234)
+   - Load `libraryPath` from properties, or fall back to system Downloads folder (MainWindow.java:238)
+   - Load `tempDirPath` from properties, or use empty string (MainWindow.java:235)
+
+## Troubleshooting Path Issues
+
+### yt-dlp Not Found
+
+If downloads fail with an error about yt-dlp not being found:
+
+1. Verify yt-dlp is installed
+2. Check the path in **Edit > Preferences > YT-DLP Path**
+3. Click **Browse...** and manually locate the executable
+4. Ensure the file has execute permissions (Linux/macOS)
+
+### Cannot Write to Download Folder
+
+If downloads fail due to permission errors:
+
+1. Check the **Download Folder** path in Preferences
+2. Ensure you have write permissions for that directory
+3. Try changing to a folder in your home directory
+
+### Properties File Not Saving
+
+If your preferences don't persist between sessions:
+
+1. Check that you have write permissions to your home directory
+2. Look for error messages when exiting the application
+3. Verify the properties file exists at the expected location
+4. Try manually creating an empty `TubifySettings.properties` file in your home directory
+
+## Code References
+
+All path-related constants and logic can be found in:
+
+- `MainWindow.java:49` - YTDLP_PATH constant
+- `MainWindow.java:51` - PROPERTIES_PATH constant
+- `MainWindow.java:199-214` - savePreferences() method
+- `MainWindow.java:223-242` - loadPreferences() method
+- `Preferences.java:227-277` - Getter/setter methods for all paths

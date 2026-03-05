@@ -1,0 +1,544 @@
+---
+title: LibraryTableModel
+description: Table model and renderer components for the library display
+icon: table
+---
+
+## Overview
+
+The `LibraryTableModel` extends Java Swing's `AbstractTableModel` to provide a custom table model for displaying library items in Tubify's LibraryPanel. It manages a list of `LibraryItem` objects and defines how they are displayed in a JTable.
+
+<Info>
+Location: `es.perelluent.tubify.dto.LibraryTableModel`
+</Info>
+
+## Class Structure
+
+```java
+package es.perelluent.tubify.dto;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.swing.table.AbstractTableModel;
+
+public class LibraryTableModel extends AbstractTableModel {
+    private final String[] columnNames = {"Type", "Origin", "File Name"};
+    private List<LibraryItem> items;
+    
+    // Methods...
+}
+```
+
+## Column Definitions
+
+The table displays three columns:
+
+<ResponseField name="Type" type="String" column="0">
+  Displays the media MIME type (e.g., "audio/mp3" or "video/mp4"). Rendered as an icon by `LibraryIconRenderer`.
+</ResponseField>
+
+<ResponseField name="Origin" type="String" column="1">
+  Shows the synchronization status: "Cloud Only", "Local Only", or "Downloaded & Local". Rendered as an icon by `LibraryIconRenderer`.
+</ResponseField>
+
+<ResponseField name="File Name" type="String" column="2">
+  The name of the media file, displayed as text.
+</ResponseField>
+
+## Constructor
+
+```java
+public LibraryTableModel() {
+    this.items = new ArrayList<>();
+}
+```
+
+Initializes the model with an empty list of library items.
+
+## Data Management Methods
+
+### setItems
+
+```java
+public void setItems(List<LibraryItem> items) {
+    this.items = items;
+    fireTableDataChanged();
+}
+```
+
+<ParamField path="items" type="List<LibraryItem>">
+  The new list of library items to display
+</ParamField>
+
+Replaces the entire list of items and triggers a table refresh. This method fires a `tableDataChanged` event, which causes the JTable to repaint all rows.
+
+### getItemAt
+
+```java
+public LibraryItem getItemAt(int rowIndex) {
+    if (rowIndex >= 0 && rowIndex < items.size()) return items.get(rowIndex);
+    return null;
+}
+```
+
+<ParamField path="rowIndex" type="int">
+  The row index in the table
+</ParamField>
+
+Retrieves the `LibraryItem` at the specified row, with bounds checking. Returns `null` if the index is out of range.
+
+### removeItem
+
+```java
+public void removeItem(int rowIndex) {
+    this.items.remove(rowIndex);
+    fireTableRowsDeleted(rowIndex, rowIndex);
+}
+```
+
+<ParamField path="rowIndex" type="int">
+  The row index to remove
+</ParamField>
+
+Removes the item at the specified index and fires a row deletion event for efficient table updates.
+
+## AbstractTableModel Overrides
+
+### getRowCount
+
+```java
+@Override
+public int getRowCount() { 
+    return items.size(); 
+}
+```
+
+Returns the number of rows (library items) in the table.
+
+### getColumnCount
+
+```java
+@Override
+public int getColumnCount() { 
+    return columnNames.length; 
+}
+```
+
+Returns the number of columns (always 3: Type, Origin, File Name).
+
+### getColumnName
+
+```java
+@Override
+public String getColumnName(int column) { 
+    return columnNames[column]; 
+}
+```
+
+<ParamField path="column" type="int">
+  The column index (0-2)
+</ParamField>
+
+Returns the header name for the specified column.
+
+### getValueAt
+
+```java
+@Override
+public Object getValueAt(int rowIndex, int columnIndex) {
+    LibraryItem item = items.get(rowIndex);
+    
+    switch (columnIndex) {
+        case 0: return item.getMediaMimeType();
+        case 1: return item.getStatus();
+        case 2: return item.getMediaName();
+        default: return null;
+    }
+}
+```
+
+<ParamField path="rowIndex" type="int">
+  The row index
+</ParamField>
+
+<ParamField path="columnIndex" type="int">
+  The column index (0-2)
+</ParamField>
+
+Returns the value to display at the specified cell. This method delegates to `LibraryItem`'s computed properties:
+- Column 0: MIME type for icon rendering
+- Column 1: Status for icon rendering
+- Column 2: Media name as text
+
+## Integration with JTable
+
+The `LibraryTableModel` is used in LibraryPanel to populate the table:
+
+```java
+// Typical usage in LibraryPanel
+LibraryTableModel model = new LibraryTableModel();
+jTable.setModel(model);
+
+// Adding items
+List<LibraryItem> libraryItems = loadLibraryItems();
+model.setItems(libraryItems);
+
+// Removing an item
+int selectedRow = jTable.getSelectedRow();
+if (selectedRow >= 0) {
+    model.removeItem(selectedRow);
+}
+
+// Getting selected item
+int selectedRow = jTable.getSelectedRow();
+LibraryItem item = model.getItemAt(selectedRow);
+```
+
+---
+
+## LibraryIconRenderer
+
+The `LibraryIconRenderer` is a custom cell renderer that replaces text values with intuitive icons for better visual representation of media types and origins.
+
+<Info>
+Location: `es.perelluent.tubify.dto.LibraryIconRenderer`
+</Info>
+
+### Class Structure
+
+```java
+package es.perelluent.tubify.dto;
+
+import javax.swing.table.DefaultTableCellRenderer;
+
+public class LibraryIconRenderer extends DefaultTableCellRenderer {
+    private Icon audioIcon;
+    private Icon videoIcon;
+    private Icon cloudIcon;
+    private Icon localIcon;
+    private Icon syncIcon;
+    
+    // Methods...
+}
+```
+
+### Icon Assets
+
+<ResponseField name="audioIcon" type="Icon">
+  Icon for audio files (audio.png, 40x40)
+</ResponseField>
+
+<ResponseField name="videoIcon" type="Icon">
+  Icon for video files (play.png, 40x40)
+</ResponseField>
+
+<ResponseField name="cloudIcon" type="Icon">
+  Icon for cloud-only media (cloud.png, 40x40)
+</ResponseField>
+
+<ResponseField name="localIcon" type="Icon">
+  Icon for local-only files (local.png, 40x40)
+</ResponseField>
+
+<ResponseField name="syncIcon" type="Icon">
+  Icon for synchronized media (sync.png, 40x40)
+</ResponseField>
+
+### Constructor
+
+```java
+public LibraryIconRenderer() {
+    audioIcon = loadIcon("/images/audio.png", 40, 40);
+    videoIcon = loadIcon("/images/play.png", 40, 40);
+    cloudIcon = loadIcon("/images/cloud.png", 40, 40);
+    localIcon = loadIcon("/images/local.png", 40, 40);
+    syncIcon = loadIcon("/images/sync.png", 40, 40);
+    
+    setHorizontalAlignment(JLabel.CENTER); // Center icons inside table cells
+}
+```
+
+Loads all icons from resources and centers them in table cells.
+
+### Icon Loading
+
+```java
+private Icon loadIcon(String path, int w, int h) {
+    URL imgUrl = getClass().getResource(path);
+    if (imgUrl != null) {
+        return MainWindow.UpscaleIcon(new ImageIcon(imgUrl), w, h);
+    }
+    return null;
+}
+```
+
+Loads and scales icons from the classpath resources.
+
+### Rendering Logic
+
+```java
+@Override
+public Component getTableCellRendererComponent(JTable table, Object value,
+        boolean isSelected, boolean hasFocus, int row, int column) {
+    
+    super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+    setText(""); //Remove text.
+    
+    String val = (value != null) ? value.toString() : "";
+    
+    if (column == 0) { //Media Type
+        if (val.toLowerCase().contains("audio") || val.toLowerCase().contains("mp3")) {
+            setIcon(audioIcon);
+            setToolTipText("Audio File");
+        } else {
+            setIcon(videoIcon);
+            setToolTipText("Video File");
+        }
+    } 
+    else if (column == 1) { // Media origin
+        switch (val) {
+            case "Cloud Only":
+                setIcon(cloudIcon);
+                break;
+            case "Local Only":
+                setIcon(localIcon);
+                break;
+            case "Synchronized":
+                setIcon(syncIcon);
+                break;
+            default:
+                setIcon(null);
+        }
+        setToolTipText(val);
+    }
+    
+    return this;
+}
+```
+
+#### Column 0: Media Type Icons
+- **Audio files**: Shows audio icon for MIME types containing "audio" or "mp3"
+- **Video files**: Shows video icon for all other media types
+- Tooltip displays "Audio File" or "Video File"
+
+#### Column 1: Origin Status Icons
+- **"Cloud Only"**: Cloud icon
+- **"Local Only"**: Local storage icon
+- **"Synchronized"**: Sync icon
+- Tooltip displays the full status text
+
+### Usage with LibraryTableModel
+
+```java
+// Apply custom renderer to columns
+LibraryIconRenderer iconRenderer = new LibraryIconRenderer();
+jTable.getColumnModel().getColumn(0).setCellRenderer(iconRenderer); // Type column
+jTable.getColumnModel().getColumn(1).setCellRenderer(iconRenderer); // Origin column
+```
+
+---
+
+## DownloadedFile
+
+The `DownloadedFile` class represents a media file stored locally on disk, tracking file metadata and providing file system operations.
+
+<Info>
+Location: `es.perelluent.tubify.dto.DownloadedFile`
+</Info>
+
+### Class Structure
+
+```java
+package es.perelluent.tubify.dto;
+
+import java.io.File;
+import java.time.LocalDateTime;
+
+public class DownloadedFile {
+    private String fileName;
+    private String filePath;
+    private long fileSize;
+    private String mimeType;
+    private LocalDateTime downloadDate;
+    
+    // Methods...
+}
+```
+
+### Fields
+
+<ResponseField name="fileName" type="String">
+  The name of the file (e.g., "video.mp4")
+</ResponseField>
+
+<ResponseField name="filePath" type="String">
+  The absolute path to the file on disk
+</ResponseField>
+
+<ResponseField name="fileSize" type="long">
+  The file size in megabytes (MB)
+</ResponseField>
+
+<ResponseField name="mimeType" type="String">
+  The MIME type of the file (e.g., "video/mp4", "audio/mp3")
+</ResponseField>
+
+<ResponseField name="downloadDate" type="LocalDateTime">
+  Timestamp when the file was downloaded or created
+</ResponseField>
+
+### Constructors
+
+#### File Constructor
+
+```java
+public DownloadedFile(File file) {
+    this.fileName = file.getName();
+    this.filePath = file.getAbsolutePath();
+    this.fileSize = file.length() / (1024 * 1024);
+    this.downloadDate = LocalDateTime.now();
+}
+```
+
+<ParamField path="file" type="File">
+  The Java File object to wrap
+</ParamField>
+
+Creates a `DownloadedFile` from an existing `java.io.File`, automatically extracting:
+- File name
+- Absolute path
+- Size in MB (converted from bytes)
+- Current timestamp as download date
+
+#### Default Constructor
+
+```java
+public DownloadedFile() {
+}
+```
+
+Creates an empty `DownloadedFile` for manual population via setters.
+
+### Getters and Setters
+
+<Accordion title="File Name">
+```java
+public String getFileName() {
+    return fileName;
+}
+
+public void setFileName(String fileName) {
+    this.fileName = fileName;
+}
+```
+</Accordion>
+
+<Accordion title="File Path">
+```java
+public String getFilePath() {
+    return filePath;
+}
+
+public void setFilePath(String filePath) {
+    this.filePath = filePath;
+}
+```
+</Accordion>
+
+<Accordion title="File Size">
+```java
+public String getFileSize() {
+    return fileSize + " MB";
+}
+
+public void setFileSize(long fileSize) {
+    this.fileSize = fileSize;
+}
+```
+Note: `getFileSize()` returns a formatted string with "MB" suffix, while `setFileSize()` accepts a raw long value.
+</Accordion>
+
+<Accordion title="MIME Type">
+```java
+public String getMimeType() {
+    return mimeType;
+}
+
+public void setMimeType(String mimeType) {
+    this.mimeType = mimeType;
+}
+```
+</Accordion>
+
+<Accordion title="Download Date">
+```java
+public String getDownloadDate() {
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm");
+    String dateFormat = downloadDate.format(formatter);
+    return dateFormat;
+}
+
+public void setDownloadDate(LocalDateTime downloadDate) {
+    this.downloadDate = downloadDate;
+}
+```
+`getDownloadDate()` returns a formatted string in "dd/MM/yyyy hh:mm" format.
+</Accordion>
+
+### File Operations
+
+#### deleteFromDisk
+
+```java
+public boolean deleteFromDisk() {
+    try {
+        File f = new File(this.filePath);
+        return f.delete();
+    } catch (Exception e) {
+        System.err.println("Error: " + e.getMessage());
+        return false;
+    }
+}
+```
+
+Deletes the physical file from disk. Returns `true` if deletion succeeds, `false` otherwise.
+
+<Warning>
+This operation is permanent and cannot be undone. Ensure proper user confirmation before calling this method.
+</Warning>
+
+### toString Override
+
+```java
+@Override
+public String toString() {
+    return fileName;
+}
+```
+
+Returns the file name for easy display in UI components.
+
+### Usage in LibraryItem
+
+```java
+// Creating a DownloadedFile from a File object
+File mediaFile = new File("/path/to/video.mp4");
+DownloadedFile downloadedFile = new DownloadedFile(mediaFile);
+downloadedFile.setMimeType("video/mp4");
+
+// Using in LibraryItem
+LibraryItem item = new LibraryItem();
+item.setLocalFile(downloadedFile);
+
+// Accessing properties through LibraryItem
+String size = item.getSize();           // "42 MB"
+String name = item.getMediaName();      // "video.mp4"
+String path = item.getMediaDownloadedUrl(); // "/path/to/video.mp4"
+```
+
+---
+
+## Related Components
+
+- [LibraryItem](/components/library-item) - Data model for library entries
+- [LibraryPanel](/panels/library) - UI panel that uses these components

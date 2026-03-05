@@ -1,0 +1,230 @@
+---
+title: LibraryItem
+description: Unified data model representing media entries in the library
+icon: box
+---
+
+## Overview
+
+The `LibraryItem` class represents a unified media entry in Tubify's library system, combining both cloud-based media (from external sources like YouTube) and local file representations. This dual-nature design allows the application to track the complete lifecycle of a media item, from its original online source to its downloaded local copy.
+
+<Info>
+Location: `es.perelluent.tubify.dto.LibraryItem`
+</Info>
+
+## Class Structure
+
+```java
+package es.perelluent.tubify.dto;
+
+import es.perelluent.mediapollingbean.dto.Media;
+
+public class LibraryItem {
+    private Media cloudMedia;
+    private DownloadedFile localFile;
+    
+    // Constructors and methods...
+}
+```
+
+## Fields
+
+<ResponseField name="cloudMedia" type="Media">
+  Represents the cloud-based media metadata, including information about the original source URL, file name, and MIME type. May be `null` if the item is local-only.
+</ResponseField>
+
+<ResponseField name="localFile" type="DownloadedFile">
+  Represents the downloaded file stored on disk, including file path, size, and download date. May be `null` if the item hasn't been downloaded yet (cloud-only).
+</ResponseField>
+
+## Constructors
+
+### Default Constructor
+
+```java
+public LibraryItem()
+```
+
+Creates an empty `LibraryItem` with no cloud or local data.
+
+### Parameterized Constructor
+
+```java
+public LibraryItem(Media cloudMedia, DownloadedFile localFile)
+```
+
+<ParamField path="cloudMedia" type="Media">
+  The cloud media metadata object
+</ParamField>
+
+<ParamField path="localFile" type="DownloadedFile">
+  The local file representation
+</ParamField>
+
+## Core Methods
+
+### Basic Getters and Setters
+
+<Accordion title="getCloudMedia() / setCloudMedia()">
+```java
+public Media getCloudMedia() {
+    return cloudMedia;
+}
+
+public void setCloudMedia(Media cloudMedia) {
+    this.cloudMedia = cloudMedia;
+}
+```
+Access or modify the cloud media metadata.
+</Accordion>
+
+<Accordion title="getLocalFile() / setLocalFile()">
+```java
+public DownloadedFile getLocalFile() {
+    return localFile;
+}
+
+public void setLocalFile(DownloadedFile localFile) {
+    this.localFile = localFile;
+}
+```
+Access or modify the local file representation.
+</Accordion>
+
+### Computed Properties
+
+<Accordion title="getMediaName()">
+```java
+public String getMediaName() {
+    if (cloudMedia != null) {
+        return cloudMedia.mediaFileName;
+    }
+    if (localFile != null) {
+        return localFile.getFileName();
+    } else {
+        return "Unknown";
+    }
+}
+```
+Returns the media file name, prioritizing cloud media if available, falling back to local file name, or "Unknown" if neither exists.
+</Accordion>
+
+<Accordion title="getMediaId()">
+```java
+public String getMediaId() {
+    if (cloudMedia != null) {
+        return cloudMedia.toString();
+    }
+    if (localFile != null) {
+        return null;
+    } else {
+        return "Unknown";
+    }
+}
+```
+Returns the media identifier from the cloud media object, or `null` for local-only files.
+</Accordion>
+
+<Accordion title="getMediaMimeType()">
+```java
+public String getMediaMimeType() {
+    if (cloudMedia != null) {
+        return cloudMedia.mediaMimeType;
+    }
+    if (localFile != null) {
+        return localFile.getMimeType();
+    } else {
+        return "Unknown";
+    }
+}
+```
+Returns the MIME type of the media (e.g., "audio/mp3" or "video/mp4"), checking cloud media first, then local file.
+</Accordion>
+
+<Accordion title="getMediaDownloadedUrl()">
+```java
+public String getMediaDownloadedUrl() {
+    if (cloudMedia != null) {
+        return cloudMedia.downloadedFromUrl;
+    }
+    if (localFile != null) {
+        return localFile.getFilePath();
+    } else {
+        return "Unknown";
+    }
+}
+```
+Returns the original download URL for cloud media, or the local file path for local-only files.
+</Accordion>
+
+<Accordion title="getStatus()">
+```java
+public String getStatus() {
+    if (cloudMedia != null && localFile != null) {
+        return "Downloaded & Local";
+    } else if (cloudMedia != null && localFile == null) {
+        return "Cloud Only";
+    } else if (cloudMedia == null && localFile != null) {
+        return "Local Only";
+    }
+    return "Error";
+}
+```
+Determines the synchronization status:
+- **"Downloaded & Local"**: Media exists both in cloud and on disk
+- **"Cloud Only"**: Media metadata exists but hasn't been downloaded
+- **"Local Only"**: File exists locally without cloud metadata
+- **"Error"**: Invalid state (neither cloud nor local data)
+</Accordion>
+
+<Accordion title="getSize()">
+```java
+public String getSize() {
+    if (localFile != null) {
+        return localFile.getFileSize();
+    } else {
+        return "Unknown";
+    }
+}
+```
+Returns the file size in MB if the file is downloaded, otherwise "Unknown".
+</Accordion>
+
+## Usage in LibraryTableModel
+
+The `LibraryItem` class is designed to work seamlessly with `LibraryTableModel`, which displays library items in a JTable. The table model uses `LibraryItem`'s computed properties to populate table columns:
+
+```java
+// From LibraryTableModel.getValueAt()
+LibraryItem item = items.get(rowIndex);
+
+switch (columnIndex) {
+    case 0: return item.getMediaMimeType();  // Type column
+    case 1: return item.getStatus();          // Origin column
+    case 2: return item.getMediaName();       // File Name column
+    default: return null;
+}
+```
+
+## Dual-Nature Design
+
+The `LibraryItem` class implements a flexible dual-nature pattern:
+
+1. **Cloud Media Tracking**: Stores metadata about media from external sources
+2. **Local File Management**: Tracks downloaded files on disk
+3. **Hybrid State Support**: Can represent items in various states:
+   - Not yet downloaded (cloud-only)
+   - Downloaded and synchronized
+   - Imported local files (local-only)
+
+This design enables features like:
+- Tracking download progress
+- Comparing cloud and local versions
+- Managing offline access
+- Syncing library state
+
+## Related Components
+
+- [LibraryTableModel](/components/table-model) - Table model for displaying library items
+- [DownloadedFile](/components/table-model#downloadedfile) - Local file representation
+- [LibraryPanel](/panels/library) - UI component that uses LibraryItem

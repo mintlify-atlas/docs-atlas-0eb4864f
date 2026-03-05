@@ -1,0 +1,395 @@
+---
+title: 'Downloading Media'
+description: 'Learn how to download videos and audio from multiple platforms using Tubify'
+icon: 'download'
+---
+
+Tubify provides a powerful and intuitive interface for downloading media from various platforms using the yt-dlp engine. The download panel offers comprehensive control over video quality, audio formats, and download progress tracking.
+
+## Download Panel Overview
+
+The download panel (`DownloadPanel.java`) is the primary interface for initiating media downloads. It integrates directly with yt-dlp to provide a seamless downloading experience with real-time progress updates.
+
+<Note>
+  All downloads are processed asynchronously using SwingWorker to ensure the UI remains responsive during the download process.
+</Note>
+
+## Starting a Download
+
+<Steps>
+  <Step title="Enter the URL">
+    Paste the media URL into the text field. The URL must start with `https://` for validation.
+    
+    ```java
+    // URL validation in DownloadPanel.java:93-105
+    String url = txtUrl.getText().trim();
+    if (url.isEmpty()) {
+        lblNotification.setText("Please, insert a URL to download.");
+        return;
+    }
+    if (!url.startsWith("https://")) {
+        lblNotification.setText("Invalid URL. Please, enter a valid URL.");
+        txtUrl.putClientProperty("JComponent.outline", "error");
+        return;
+    }
+    ```
+  </Step>
+  
+  <Step title="Select Resolution or Audio Format">
+    Choose your preferred download quality from the available options.
+  </Step>
+  
+  <Step title="Click Download">
+    Press the DOWNLOAD button to start the download process. The button will be disabled during the download to prevent multiple simultaneous downloads.
+  </Step>
+  
+  <Step title="Monitor Progress">
+    Watch the progress bar fill as your download completes. Real-time percentage updates are displayed during the download.
+  </Step>
+</Steps>
+
+## Resolution Selection
+
+Tubify offers four resolution presets for video downloads, each optimized for different use cases:
+
+<Tabs>
+  <Tab title="FullHD (1080p)">
+    Maximum quality for modern displays. Uses the format selector:
+    ```java
+    "bv*[height<=1080]+ba/b[height<=1080]"
+    ```
+    Perfect for high-quality archival or viewing on large screens.
+  </Tab>
+  
+  <Tab title="HD (720p)">
+    Balanced quality and file size. Uses the format selector:
+    ```java
+    "bv*[height<=720]+ba/b[height<=720]"
+    ```
+    Ideal for most viewing scenarios with reasonable file sizes.
+  </Tab>
+  
+  <Tab title="SD (480p)">
+    Smaller file size for mobile devices or limited storage. Uses the format selector:
+    ```java
+    "bv*[height<=480]+ba/b[height<=480]"
+    ```
+    Great for saving bandwidth and storage space.
+  </Tab>
+  
+  <Tab title="Best">
+    Automatically selects the highest quality available. Uses the format selector:
+    ```java
+    "bestvideo+bestaudio/best"
+    ```
+    Lets yt-dlp choose the optimal format available from the source.
+  </Tab>
+</Tabs>
+
+### Resolution Implementation
+
+The resolution selection is handled by the `chooseResolution()` method:
+
+```java
+// DownloadPanel.java:277-288
+private String chooseResolution(String selected) {
+    if (selected.contains("1080")) {
+        return "bv*[height<=1080]+ba/b[height<=1080]";
+    }
+    if (selected.contains("720")) {
+        return "bv*[height<=720]+ba/b[height<=720]";
+    }
+    if (selected.contains("480")) {
+        return "bv*[height<=480]+ba/b[height<=480]";
+    }
+    return "bestvideo+bestaudio/best";
+}
+```
+
+All video downloads are automatically merged to MP4 format using the `--merge-output-format mp4` flag.
+
+## Audio-Only Mode
+
+For users who only need audio, Tubify provides a dedicated audio extraction mode with multiple format options.
+
+### Enabling Audio Mode
+
+Check the "Only Audio" checkbox to enable audio-only downloads. This will:
+- Disable the resolution selector
+- Enable the audio format dropdown
+- Add the `-x` flag to extract audio only
+
+```java
+// DownloadPanel.java:73-79
+chkOnlyAudio = new JCheckBox("Only Audio");
+chkOnlyAudio.addActionListener(new ActionListener() {
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        cmbAudioFormat.setEnabled(chkOnlyAudio.isSelected());
+    }
+});
+```
+
+### Available Audio Formats
+
+<Accordion title="MP3">
+  The most widely supported audio format. Compatible with virtually all devices and players.
+  
+  ```bash
+  --audio-format mp3
+  ```
+</Accordion>
+
+<Accordion title="M4A">
+  AAC audio in MP4 container. Offers better quality at similar bitrates compared to MP3.
+  
+  ```bash
+  --audio-format m4a
+  ```
+</Accordion>
+
+<Accordion title="WAV">
+  Uncompressed audio format. Largest file size but maintains original audio quality.
+  
+  ```bash
+  --audio-format wav
+  ```
+</Accordion>
+
+### Audio Extraction Implementation
+
+```java
+// DownloadPanel.java:160-169
+if (chkOnlyAudio.isSelected()) {
+    String selectedAudioFormat = (String) cmbAudioFormat.getSelectedItem();
+    cmd.add("-x");
+    cmd.add("--audio-format");
+    if ("best".equalsIgnoreCase(selectedAudioFormat)) {
+        cmd.add("mp3");
+    } else {
+        cmd.add(selectedAudioFormat);
+    }
+}
+```
+
+## Progress Tracking
+
+Tubify provides real-time download progress updates through a visual progress bar and status notifications.
+
+### JProgressBar Integration
+
+The progress bar (`progressBar`) is updated in real-time by parsing yt-dlp's output:
+
+```java
+// DownloadPanel.java:113-115
+progressBar = new JProgressBar(0, 100);
+progressBar.setStringPainted(true);
+pnlCard.add(progressBar, "h 20!, gaptop 10");
+```
+
+### Real-Time Status Updates
+
+The download process uses SwingWorker's `process()` method to update the UI:
+
+```java
+// DownloadPanel.java:224-247
+@Override
+protected void process(List<String> chunks) {
+    for (String line : chunks) {
+        Pattern pattern = Pattern.compile("\\[download\\]\\s+(\\d+\\.\\d+)%");
+        Matcher matcher = pattern.matcher(line);
+        
+        if (matcher.find()) {
+            try {
+                double percentage = Double.parseDouble(matcher.group(1));
+                int valor = (int) percentage;
+                
+                if (valor >= 0 && valor <= 100) {
+                    progressBar.setValue(valor);
+                }
+            } catch (NumberFormatException e) {
+                System.err.println("Error parsing progress percentage: " + e.getMessage());
+            }
+        }
+    }
+}
+```
+
+The regex pattern `\[download\]\s+(\d+\.\d+)%` extracts the percentage from yt-dlp's output, allowing for smooth progress bar updates.
+
+### Download Completion
+
+When the download completes successfully:
+
+```java
+// DownloadPanel.java:255-262
+if (downloadSucceeded) {
+    progressBar.setValue(100);
+    lblNotification.setText("Download Finished!");
+    lblNotification.setForeground(Color.decode("#fb3f62"));
+    if (main.getLibraryPanel() != null) {
+        main.getLibraryPanel().loadMedia(finalFileName);
+    }
+}
+```
+
+<Note>
+  After a successful download, the library automatically refreshes and scrolls to the newly downloaded file.
+</Note>
+
+## Error Handling
+
+Tubify implements comprehensive error handling to provide clear feedback when downloads fail.
+
+### Input Validation Errors
+
+<Warning>
+  Empty URL: "Please, insert a URL to download."
+  
+  Invalid URL format: "Invalid URL. Please, enter a valid URL."
+</Warning>
+
+### Download Process Errors
+
+Errors during the download process are captured and displayed:
+
+```java
+// DownloadPanel.java:209-220
+int exitCode = process.waitFor();
+if (exitCode == 0) {
+    publish("Download completed successfully!");
+    downloadSucceeded = true;
+} else {
+    publish("Download failed with exit code: " + exitCode);
+}
+```
+
+### Exception Handling
+
+```java
+// DownloadPanel.java:218-220
+catch (IOException | InterruptedException e) {
+    publish("Error: " + e.getMessage());
+}
+```
+
+## Advanced Download Options
+
+Tubify supports several advanced yt-dlp options configured through the preferences:
+
+### Speed Limiting
+
+Limit download speed to prevent bandwidth saturation:
+
+```java
+// DownloadPanel.java:178-182
+String speedLimit = props.getProperty("speedLimit", "");
+if (speedLimit != null && !speedLimit.trim().isEmpty()) {
+    cmd.add("--limit-rate");
+    cmd.add(speedLimit.trim());
+}
+```
+
+### Temporary Directory
+
+Specify a custom temporary directory for downloads in progress:
+
+```java
+// DownloadPanel.java:183-187
+String tempPath = props.getProperty("tempDirPath", "");
+if (tempPath != null && !tempPath.trim().isEmpty()) {
+    cmd.add("--paths");
+    cmd.add("temp:" + tempPath.trim());
+}
+```
+
+### M3U Playlist Creation
+
+Automatically create M3U playlist files:
+
+```java
+// DownloadPanel.java:188-191
+boolean createM3u = Boolean.parseBoolean(props.getProperty("createM3u", "false"));
+if (createM3u) {
+    cmd.add("--create-m3u");
+}
+```
+
+### No Playlist Mode
+
+Tubify automatically adds the `--no-playlist` flag to download only single videos:
+
+```java
+cmd.add("--no-playlist");
+```
+
+## UI Styling
+
+The download panel uses FlatLaf styling with the signature pink accent color (#fb3f62):
+
+```java
+// DownloadPanel.java:86-89
+btnDownload.setBackground(Color.decode("#fb3f62"));
+btnDownload.setForeground(Color.WHITE);
+btnDownload.setFont(new Font("Montserrat", Font.BOLD, 12));
+btnDownload.putClientProperty("JButton.buttonType", "roundRect");
+```
+
+The panel uses MigLayout for responsive layout management:
+
+```java
+// DownloadPanel.java:56
+JPanel pnlCard = new JPanel(new MigLayout("wrap, insets 20, gapy 10", "[grow, fill]"));
+pnlCard.putClientProperty("FlatLaf.style", "arc: 20");
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Check URL Validity">
+    Always ensure URLs start with `https://` and point to supported platforms.
+  </Step>
+  
+  <Step title="Choose Appropriate Quality">
+    Select resolution based on your intended use:
+    - FullHD for archival
+    - HD for general viewing
+    - SD for mobile devices
+  </Step>
+  
+  <Step title="Wait for Completion">
+    Allow downloads to complete before starting new ones. The download button is disabled during active downloads.
+  </Step>
+  
+  <Step title="Monitor Progress">
+    Watch the progress bar and status messages for real-time feedback.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<Accordion title="Download button is disabled">
+  A download is currently in progress. Wait for it to complete before starting a new download.
+</Accordion>
+
+<Accordion title="Invalid URL error">
+  Ensure the URL starts with `https://` and points to a supported video platform.
+</Accordion>
+
+<Accordion title="Download fails with exit code">
+  Check that:
+  - yt-dlp is properly installed and accessible
+  - The video is available and not region-restricted
+  - You have write permissions to the library directory
+  - FFmpeg is installed (required for audio extraction and format conversion)
+</Accordion>
+
+<Accordion title="Progress bar not updating">
+  The progress bar updates based on yt-dlp output. Some downloads may not report progress for small files or when metadata is being fetched.
+</Accordion>
+
+## Related Topics
+
+- [Library Management](/features/library-management) - Learn how to manage your downloaded files
+- [Configuration](/configuration/preferences) - Configure download settings and paths
+- [Cloud Sync](/features/cloud-sync) - Upload downloads to the cloud

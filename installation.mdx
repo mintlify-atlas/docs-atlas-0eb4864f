@@ -1,0 +1,289 @@
+---
+title: Installation
+description: Complete installation guide for Tubify including all prerequisites and configuration steps.
+---
+
+# Installation Guide
+
+This guide will walk you through installing Tubify and all its dependencies on your system.
+
+## Prerequisites
+
+Before installing Tubify, ensure you have the following prerequisites installed on your system:
+
+### Required Software
+
+<Steps>
+  <Step title="Java Development Kit (JDK) 24">
+    Tubify is built with Java 24 and requires this version to run.
+    
+    **Download**: [Oracle JDK 24](https://www.oracle.com/java/technologies/downloads/)
+    
+    **Verify Installation**:
+    ```bash
+    java -version
+    ```
+    
+    You should see output indicating Java version 24.x.x
+  </Step>
+  
+  <Step title="Apache Maven">
+    Maven is required to build Tubify from source.
+    
+    **Download**: [Apache Maven](https://maven.apache.org/download.cgi)
+    
+    **Verify Installation**:
+    ```bash
+    mvn -version
+    ```
+  </Step>
+  
+  <Step title="yt-dlp">
+    The core download engine that Tubify wraps with its GUI.
+    
+    **Download**: [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases)
+    
+    <Note>
+      On Windows, yt-dlp is typically installed to `%LOCALAPPDATA%\yt-dlp\yt-dlp.exe`. Tubify automatically looks for it in this location.
+    </Note>
+    
+    **Verify Installation**:
+    ```bash
+    yt-dlp --version
+    ```
+  </Step>
+  
+  <Step title="FFmpeg (Optional but Recommended)">
+    Required for audio extraction and format conversion.
+    
+    **Download**: [FFmpeg Downloads](https://ffmpeg.org/download.html)
+    
+    **Verify Installation**:
+    ```bash
+    ffmpeg -version
+    ```
+    
+    <Warning>
+      Without FFmpeg, you won't be able to extract audio or merge video/audio streams properly.
+    </Warning>
+  </Step>
+</Steps>
+
+## Installation Steps
+
+### Option 1: Build from Source
+
+<Steps>
+  <Step title="Clone the Repository">
+    Clone the Tubify repository to your local machine:
+    
+    ```bash
+    git clone https://github.com/yourusername/Tubify.git
+    cd Tubify
+    ```
+  </Step>
+  
+  <Step title="Build with Maven">
+    Use Maven to compile and package the application:
+    
+    ```bash
+    mvn clean package
+    ```
+    
+    This will:
+    - Download all required dependencies (FlatLaf, MigLayout, Jackson, MediaPollingBean)
+    - Compile the Java source code
+    - Create a JAR file in the `target/` directory
+  </Step>
+  
+  <Step title="Run Tubify">
+    Execute the built JAR file:
+    
+    ```bash
+    java -jar target/Tubify-1.0-SNAPSHOT.jar
+    ```
+    
+    Or use Maven's exec plugin:
+    
+    ```bash
+    mvn exec:java
+    ```
+  </Step>
+</Steps>
+
+### Option 2: Using an IDE (NetBeans)
+
+<Steps>
+  <Step title="Open Project in NetBeans">
+    Tubify was developed in NetBeans 27. Open the project:
+    
+    1. Launch NetBeans IDE
+    2. Go to **File** → **Open Project**
+    3. Navigate to the Tubify directory
+    4. Click **Open Project**
+  </Step>
+  
+  <Step title="Build and Run">
+    NetBeans will automatically:
+    - Detect the Maven configuration from `pom.xml`
+    - Download dependencies
+    - Set up the project structure
+    
+    Click the **Run** button (F6) or right-click the project and select **Run**.
+  </Step>
+</Steps>
+
+## Dependencies
+
+Tubify automatically manages the following dependencies through Maven:
+
+```xml pom.xml
+<dependencies>
+    <!-- Jackson for JSON processing -->
+    <dependency>
+        <groupId>tools.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>3.0.0</version>
+    </dependency>
+    
+    <!-- MediaPollingBean for cloud integration -->
+    <dependency>
+        <groupId>es.perelluent</groupId>
+        <artifactId>MediaPollingBean</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </dependency>
+    
+    <!-- FlatLaf for modern UI -->
+    <dependency>
+        <groupId>com.formdev</groupId>
+        <artifactId>flatlaf</artifactId>
+        <version>3.5.4</version>
+    </dependency>
+    
+    <!-- MigLayout for responsive layouts -->
+    <dependency>
+        <groupId>com.miglayout</groupId>
+        <artifactId>miglayout-swing</artifactId>
+        <version>11.4.2</version>
+    </dependency>
+</dependencies>
+```
+
+## Configuration
+
+### yt-dlp Path Configuration
+
+On first launch, Tubify needs to know where yt-dlp is installed:
+
+<Steps>
+  <Step title="Default Path (Windows)">
+    Tubify automatically checks for yt-dlp at:
+    
+    ```
+    %LOCALAPPDATA%\yt-dlp\yt-dlp.exe
+    ```
+    
+    If yt-dlp is installed in this location, no additional configuration is needed.
+  </Step>
+  
+  <Step title="Custom Path">
+    If yt-dlp is installed elsewhere:
+    
+    1. Launch Tubify
+    2. Log in to the application
+    3. Click the **PREFERENCES** button in the Library panel
+    4. Click **Browse...** next to "YT-DLP Path"
+    5. Navigate to your yt-dlp executable
+    6. Click **SAVE & CLOSE**
+  </Step>
+</Steps>
+
+### Settings File
+
+Tubify stores user preferences in:
+
+```
+%USERPROFILE%\TubifySettings.properties
+```
+
+This file contains:
+- `ytdlpPath`: Path to yt-dlp executable
+- `libraryPath`: Download folder location
+- `tempDirPath`: Temporary files directory (optional)
+- `speedLimit`: Download speed limit (500K or 2M)
+- `createM3u`: Whether to create .m3u playlist files
+
+<Note>
+  You don't need to manually edit this file. All settings can be configured through the Preferences panel.
+</Note>
+
+## Platform-Specific Notes
+
+### Windows
+
+- The default yt-dlp path uses the `LOCALAPPDATA` environment variable
+- Downloads default to your user's Downloads folder
+- FFmpeg should be added to your system PATH for automatic detection
+
+### Linux/macOS
+
+<Warning>
+  The current version of Tubify is optimized for Windows. Linux/macOS support may require path adjustments in the source code (particularly in `MainWindow.java:49` and `DownloadPanel.java:34`).
+</Warning>
+
+For Linux/macOS:
+- Modify `YTDLP_PATH` to point to your yt-dlp installation (typically `/usr/local/bin/yt-dlp`)
+- Ensure yt-dlp has execute permissions: `chmod +x /path/to/yt-dlp`
+
+## Verify Installation
+
+After installation, verify everything is working:
+
+<Steps>
+  <Step title="Launch Tubify">
+    Start the application. You should see the login screen with the Tubify logo.
+  </Step>
+  
+  <Step title="Check Settings">
+    Navigate to **Edit** → **Preferences** from the menu bar and verify:
+    - YT-DLP Path points to a valid executable
+    - Download Folder is set to a writable location
+  </Step>
+  
+  <Step title="Test Download">
+    Try downloading a test video to ensure yt-dlp integration is working.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### "yt-dlp not found" Error
+
+**Solution**: 
+1. Verify yt-dlp is installed: `yt-dlp --version`
+2. Open Preferences and manually set the correct path to yt-dlp executable
+
+### FFmpeg Errors
+
+**Solution**:
+- Install FFmpeg and ensure it's in your system PATH
+- Test with: `ffmpeg -version`
+
+### Build Errors
+
+**Solution**:
+- Ensure you're using JDK 24 (not earlier versions)
+- Run `mvn clean install` to refresh dependencies
+- Check that Maven can access the internet for dependency downloads
+
+### Permission Errors
+
+**Solution**:
+- Ensure the download folder is writable
+- On Linux/macOS, check file permissions on the yt-dlp executable
+
+## Next Steps
+
+<Card title="Quick Start Guide" icon="bolt" href="/quickstart">
+  Now that Tubify is installed, learn how to download your first video!
+</Card>

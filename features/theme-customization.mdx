@@ -1,0 +1,642 @@
+---
+title: 'Theme Customization'
+description: 'Customize the look and feel of Tubify with FlatLaf themes, dark/light modes, and custom styling'
+icon: 'palette'
+---
+
+Tubify features a modern, customizable interface powered by FlatLaf (Flat Look and Feel), offering dynamic theme switching between dark and light modes, custom color schemes, and responsive layouts that adapt to any screen size.
+
+## FlatLaf Integration
+
+Tubify uses [FlatLaf](https://www.formdev.com/flatlaf/) as its Look and Feel library, providing a modern, flat design aesthetic that surpasses traditional Swing appearance.
+
+### FlatLaf Setup
+
+FlatLaf is initialized in the application's main method:
+
+```java
+// MainWindow.java:338-355
+public static void main(String args[]) {
+    try {
+        // Set up Montserrat font
+        InputStream is = MainWindow.class.getResourceAsStream("/fonts/Montserrat-Regular.ttf");
+        Font montserrat = Font.createFont(Font.TRUETYPE_FONT, is).deriveFont(13f);
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        ge.registerFont(montserrat);
+        
+        // Configure FlatLaf to use Montserrat
+        UIManager.put("defaultFont", montserrat);
+        
+        // Apply FlatDarkLaf as default theme
+        com.formdev.flatlaf.FlatDarkLaf.setup();
+    } catch (Exception e) {
+        System.err.println("No se pudo cargar Montserrat, usando fuente por defecto.");
+        com.formdev.flatlaf.FlatDarkLaf.setup();
+    }
+    Locale.setDefault(Locale.ENGLISH);
+    java.awt.EventQueue.invokeLater(() -> new MainWindow().setVisible(true));
+}
+```
+
+<Note>
+  FlatDarkLaf is the default theme on startup. Users can toggle to FlatLightLaf using the theme switcher.
+</Note>
+
+## Dark and Light Mode Toggle
+
+Tubify provides seamless theme switching without requiring application restart.
+
+### Theme Toggle Implementation
+
+The `changeTheme()` method dynamically switches between dark and light modes:
+
+```java
+// MainWindow.java:306-336
+public void changeTheme() {
+    try {
+        // Determine next theme based on current state
+        LookAndFeel nextLaf = com.formdev.flatlaf.FlatLaf.isLafDark()
+                ? new com.formdev.flatlaf.FlatLightLaf()
+                : new com.formdev.flatlaf.FlatDarkLaf();
+        
+        // Apply new Look and Feel
+        UIManager.setLookAndFeel(nextLaf);
+        
+        // Update main window components
+        SwingUtilities.updateComponentTreeUI(this);
+        
+        // Update all panels
+        if (loginPanel != null) {
+            SwingUtilities.updateComponentTreeUI(loginPanel);
+        }
+        if (libraryPanel != null) {
+            SwingUtilities.updateComponentTreeUI(libraryPanel);
+        }
+        if (downloadPanel != null) {
+            SwingUtilities.updateComponentTreeUI(downloadPanel);
+        }
+        if (preferences != null) {
+            SwingUtilities.updateComponentTreeUI(preferences);
+        }
+        if (aboutPanel != null) {
+            SwingUtilities.updateComponentTreeUI(aboutPanel);
+        }
+        
+    } catch (Exception ex) {
+        ex.printStackTrace();
+    }
+}
+```
+
+<Steps>
+  <Step title="Detect current theme">
+    Uses `FlatLaf.isLafDark()` to check if the current theme is dark mode.
+  </Step>
+  
+  <Step title="Select opposite theme">
+    Creates `FlatLightLaf` if currently dark, or `FlatDarkLaf` if currently light.
+  </Step>
+  
+  <Step title="Apply new Look and Feel">
+    Sets the new theme via `UIManager.setLookAndFeel()`.
+  </Step>
+  
+  <Step title="Update all components">
+    Recursively updates the entire component tree for all panels to reflect the new theme.
+  </Step>
+</Steps>
+
+### Accessing Theme Toggle
+
+Users can toggle themes from two locations:
+
+<Tabs>
+  <Tab title="Menu Bar">
+    Navigate to **Edit → Toggle Theme**
+    
+    ```java
+    // MainWindow.java:116-118
+    mniTheme = new JMenuItem("Toggle Theme");
+    mniTheme.addActionListener(e -> changeTheme());
+    mnuEdit.add(mniTheme);
+    ```
+  </Tab>
+  
+  <Tab title="Keyboard Shortcut">
+    While menu shortcuts aren't explicitly defined in the code, the menu item is accessible via Alt+E then T.
+  </Tab>
+</Tabs>
+
+<Note>
+  Theme changes apply instantly to all open windows and panels without losing application state.
+</Note>
+
+## Custom Color Scheme
+
+Tubify uses a distinctive pink accent color (#fb3f62) as its brand color throughout the interface.
+
+### Brand Color Application
+
+The signature pink color appears in multiple UI elements:
+
+<Accordion title="Download Button">
+  ```java
+  // DownloadPanel.java:86-89
+  btnDownload.setBackground(Color.decode("#fb3f62"));
+  btnDownload.setForeground(Color.WHITE);
+  btnDownload.setFont(new Font("Montserrat", Font.BOLD, 12));
+  btnDownload.putClientProperty("JButton.buttonType", "roundRect");
+  ```
+  
+  The main download button uses the brand color with white text for maximum contrast.
+</Accordion>
+
+<Accordion title="Login Button">
+  ```java
+  // LoginPanel.java:108-113
+  btnLogin = new JButton("LOGIN");
+  btnLogin.setCursor(new Cursor(Cursor.HAND_CURSOR));
+  btnLogin.putClientProperty("JButton.buttonType", "roundRect");
+  btnLogin.setBackground(Color.decode("#fb3f62"));
+  btnLogin.setForeground(Color.WHITE);
+  ```
+  
+  Consistent branding in the authentication interface.
+</Accordion>
+
+<Accordion title="Play Button">
+  ```java
+  // LibraryPanel.java:163-164
+  btnPlay = createStyledButton("PLAY MEDIA", Color.decode("#fb3f62"));
+  btnPlay.setForeground(Color.WHITE);
+  ```
+  
+  The primary action button in the library panel.
+</Accordion>
+
+<Accordion title="Table Selection">
+  ```java
+  // LibraryPanel.java:110
+  tblLibrary.putClientProperty("Table.selectionBackground", Color.decode("#f39bab"));
+  ```
+  
+  A lighter shade (#f39bab) is used for table row selection, maintaining the pink theme while ensuring readability.
+</Accordion>
+
+<Accordion title="Notification Labels">
+  ```java
+  // DownloadPanel.java:96, 102, 258
+  lblNotification.setForeground(Color.decode("#fb3f62"));
+  ```
+  
+  Status messages and notifications use the brand color to draw attention.
+</Accordion>
+
+### Color Palette
+
+| Color | Hex Code | Usage |
+|-------|----------|-------|
+| **Primary Pink** | #fb3f62 | Primary buttons, brand accents |
+| **Light Pink** | #f39bab | Table selections, hover states |
+| **White** | #FFFFFF | Button text, contrast elements |
+| **Dark Background** | FlatLaf default | Dark mode panels |
+| **Light Background** | FlatLaf default | Light mode panels |
+| **Gray Border** | Color.GRAY | Borders, separators |
+
+## Montserrat Font Usage
+
+Tubify uses the Montserrat font family throughout the application for a modern, clean typographic hierarchy.
+
+### Font Registration
+
+Montserrat is loaded as a custom font resource:
+
+```java
+// MainWindow.java:341-346
+InputStream is = MainWindow.class.getResourceAsStream("/fonts/Montserrat-Regular.ttf");
+Font montserrat = Font.createFont(Font.TRUETYPE_FONT, is).deriveFont(13f);
+GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+ge.registerFont(montserrat);
+
+UIManager.put("defaultFont", montserrat);
+```
+
+### Typographic Hierarchy
+
+Different font weights create visual hierarchy:
+
+<Tabs>
+  <Tab title="Bold Titles">
+    ```java
+    // DownloadPanel.java:60-61
+    JLabel lblTitle = new JLabel("DOWNLOAD");
+    lblTitle.setFont(new Font("Montserrat", Font.BOLD, 18));
+    ```
+    
+    Large, bold text for panel titles (18pt).
+  </Tab>
+  
+  <Tab title="Section Headers">
+    ```java
+    // LibraryPanel.java:84-85
+    JLabel lblTitle = new JLabel("LIBRARY");
+    lblTitle.setFont(new Font("Montserrat", Font.BOLD, 22));
+    ```
+    
+    Extra large bold for main section headers (22pt).
+  </Tab>
+  
+  <Tab title="Button Labels">
+    ```java
+    // LibraryPanel.java:312
+    btn.setFont(new Font("Montserrat", Font.BOLD, 12));
+    ```
+    
+    Medium bold for button text (12pt).
+  </Tab>
+  
+  <Tab title="Body Text">
+    ```java
+    // DownloadPanel.java:117
+    lblNotification.setFont(new Font("Montserrat", Font.PLAIN, 12));
+    ```
+    
+    Regular weight for notifications and body text (12pt).
+  </Tab>
+  
+  <Tab title="Table Content">
+    ```java
+    // LibraryPanel.java:125
+    tblLibrary.setFont(new Font("Montserrat", Font.PLAIN, 13));
+    ```
+    
+    Slightly larger regular text for table readability (13pt).
+  </Tab>
+  
+  <Tab title="Error Messages">
+    ```java
+    // LoginPanel.java:130
+    lblError.setFont(new Font("Montserrat-Regular", Font.BOLD, 9));
+    ```
+    
+    Small bold for error messages (9pt).
+  </Tab>
+</Tabs>
+
+<Note>
+  If Montserrat fails to load, FlatLaf falls back to the system default font without crashing.
+</Note>
+
+## Dynamic Styling with FlatLaf Properties
+
+FlatLaf supports component-level styling through client properties, enabling fine-grained control.
+
+### Rounded Components
+
+Many components use rounded corners for a modern aesthetic:
+
+<Accordion title="Round Rect Buttons">
+  ```java
+  // DownloadPanel.java:89
+  btnDownload.putClientProperty("JButton.buttonType", "roundRect");
+  ```
+  
+  Creates buttons with rounded corners.
+</Accordion>
+
+<Accordion title="Rounded Panels">
+  ```java
+  // DownloadPanel.java:57
+  pnlCard.putClientProperty("FlatLaf.style", "arc: 20");
+  ```
+  
+  Panels with 20-pixel corner radius for smooth edges.
+</Accordion>
+
+<Accordion title="Rounded Text Fields">
+  ```java
+  // LoginPanel.java:97, 101
+  txtUser.putClientProperty("FlatLaf.style", "arc: 15");
+  pswPassword.putClientProperty("FlatLaf.style", "arc: 15");
+  ```
+  
+  Input fields with 15-pixel corner radius.
+</Accordion>
+
+<Accordion title="Search Bar Styling">
+  ```java
+  // LibraryPanel.java:100
+  txtSearch.putClientProperty("FlatLaf.style", "arc: 12");
+  ```
+  
+  12-pixel radius for the library search field.
+</Accordion>
+
+### Placeholder Text
+
+FlatLaf enables placeholder text in text fields:
+
+```java
+// DownloadPanel.java:65
+txtUrl.putClientProperty("JTextField.placeholderText", "Paste link here");
+
+// LoginPanel.java:96, 100
+txtUser.putClientProperty("JTextField.placeholderText", "Email");
+pswPassword.putClientProperty("JTextField.placeholderText", "Password");
+
+// LibraryPanel.java:99
+txtSearch.putClientProperty("JTextField.placeholderText", "Search media...");
+```
+
+### Error Outline
+
+Invalid input can be highlighted with error styling:
+
+```java
+// DownloadPanel.java:97, 103
+txtUrl.putClientProperty("JComponent.outline", "error");
+```
+
+This applies a red outline to indicate validation errors.
+
+### Toolbar Buttons
+
+Buttons can be styled as toolbar items:
+
+```java
+// LibraryPanel.java:142, 154
+btnDelete.putClientProperty("JButton.buttonType", "toolBarButton");
+btnUpload.putClientProperty("JButton.buttonType", "toolBarButton");
+```
+
+## Responsive Layouts
+
+Tubify uses MigLayout to create flexible, responsive interfaces that adapt to window resizing.
+
+### MigLayout Configuration
+
+Different panels use MigLayout with specific constraints:
+
+<Tabs>
+  <Tab title="Download Panel">
+    ```java
+    // DownloadPanel.java:49
+    setLayout(new MigLayout("fill, insets 10", "[grow]", "[]"));
+    
+    // Card panel
+    JPanel pnlCard = new JPanel(new MigLayout("wrap, insets 20, gapy 10", "[grow, fill]"));
+    ```
+    
+    - `fill`: Panel fills available space
+    - `insets 10`: 10-pixel padding
+    - `wrap`: Components stack vertically
+    - `gapy 10`: 10-pixel vertical gaps
+  </Tab>
+  
+  <Tab title="Library Panel">
+    ```java
+    // LibraryPanel.java:61
+    setLayout(new MigLayout("fill, insets 10 0 10 10", "[grow, fill]", "[][grow][]"));
+    ```
+    
+    Three-row layout:
+    - Row 1: Header (fixed height)
+    - Row 2: Table (grows to fill space)
+    - Row 3: Actions (fixed height)
+  </Tab>
+  
+  <Tab title="Login Panel">
+    ```java
+    // LoginPanel.java:63
+    setLayout(new MigLayout("fill, insets 0", "[center]", "[center]"));
+    
+    // Form panel
+    JPanel pnlForm = new JPanel(new MigLayout("wrap, insets 30, gapy 10", "[grow, fill]"));
+    ```
+    
+    Centered layout with the form panel having generous padding.
+  </Tab>
+  
+  <Tab title="Main Window">
+    ```java
+    // MainWindow.java:142
+    pnlMain.setLayout(new MigLayout("fill, insets 10", "[320!, fill]10[grow, fill]", "[grow]"));
+    ```
+    
+    Two-column layout:
+    - Left: Download panel (fixed 320px width)
+    - Right: Library panel (grows to fill remaining space)
+    - Gap: 10 pixels between columns
+  </Tab>
+</Tabs>
+
+### Dynamic Component Sizing
+
+MigLayout constraints define how components resize:
+
+```java
+// Fixed height constraints
+pnlCard.add(txtUrl, "h 35!");           // Exactly 35px height
+pnlCard.add(cmbResolucion, "h 30!");    // Exactly 30px height
+pnlCard.add(btnDownload, "h 45!, gaptop 15"); // 45px height, 15px top gap
+
+// Growing width
+pnlHeader.add(txtSearch, "width 250!");  // Fixed 250px width
+
+// Grow to fill
+add(scrollPane, "grow, wrap");           // Table grows both directions
+```
+
+### Minimum Window Size
+
+The main window enforces minimum dimensions:
+
+```java
+// MainWindow.java:82
+this.setMinimumSize(new Dimension(1100, 700));
+```
+
+This prevents the UI from collapsing into unusable layouts when resized too small.
+
+## Visual Effects and Polish
+
+Tubify includes several visual enhancements for a polished user experience.
+
+### Cursor Changes
+
+Interactive elements show hand cursor on hover:
+
+```java
+// LibraryPanel.java:314
+btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+// Wait cursor during operations
+this.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR));
+```
+
+### Button Hover Effects
+
+Buttons transform into icons on hover:
+
+```java
+// LibraryPanel.java:202-217
+btnUpload.addMouseListener(new java.awt.event.MouseAdapter() {
+    @Override
+    public void mouseEntered(java.awt.event.MouseEvent evt) {
+        btnUpload.setContentAreaFilled(false);
+        btnUpload.setText("");
+        btnUpload.setToolTipText("Upload");
+        btnUpload.setIcon(iconUpload);
+    }
+    
+    @Override
+    public void mouseExited(java.awt.event.MouseEvent evt) {
+        btnUpload.setContentAreaFilled(true);
+        btnUpload.setIcon(null);
+        btnUpload.setText("UPLOAD");
+    }
+});
+```
+
+This creates an engaging micro-interaction that provides visual feedback.
+
+### Icon Scaling
+
+Icons are scaled uniformly using a utility method:
+
+```java
+// MainWindow.java:292-299
+public static ImageIcon UpscaleIcon(ImageIcon icon, int width, int height) {
+    if (icon == null) {
+        return null;
+    }
+    Image img = icon.getImage();
+    Image newImg = img.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+    return new ImageIcon(newImg);
+}
+```
+
+Usage examples:
+```java
+// Logo in library header
+lblLogo.setIcon(MainWindow.UpscaleIcon(new ImageIcon(imageUrl), 200, 80));
+
+// Menu bar icon
+lblLogo.setIcon(MainWindow.UpscaleIcon(new ImageIcon(imageUrl), 20, 20));
+
+// Action icons
+playIcon = MainWindow.UpscaleIcon(new ImageIcon(playIconUrl), 60, 60);
+```
+
+### Tooltips
+
+All action buttons include descriptive tooltips:
+
+```java
+// LibraryPanel.java:140, 152, 167, 249
+btnDelete.setToolTipText("Delete File");
+btnUpload.setToolTipText("Upload File");
+btnLogout.setToolTipText("Logout");
+btnPrefences.setToolTipText("Preferences");
+```
+
+### Borders and Visual Separation
+
+```java
+// LibraryPanel.java:129
+scrollPane.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
+
+// LoginPanel.java:84-85
+pnlForm.setBorder(BorderFactory.createCompoundBorder(
+    new FlatLineBorder(new Insets(0, 0, 0, 0), Color.GRAY, 1, 20),
+    BorderFactory.createEmptyBorder(5, 5, 5, 5)
+));
+```
+
+Subtle borders provide visual structure without clutter.
+
+## Theme Persistence
+
+<Warning>
+  Currently, theme preference is not persisted between application sessions. The app always starts in dark mode.
+</Warning>
+
+To add theme persistence, you could extend the preferences system:
+
+```java
+// Example implementation (not in current code)
+prefs.put("theme", "light"); // or "dark"
+
+// On startup
+String savedTheme = prefs.get("theme", "dark");
+if ("light".equals(savedTheme)) {
+    UIManager.setLookAndFeel(new com.formdev.flatlaf.FlatLightLaf());
+} else {
+    UIManager.setLookAndFeel(new com.formdev.flatlaf.FlatDarkLaf());
+}
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Choose theme based on environment">
+    Use dark mode in low-light conditions, light mode in bright environments.
+  </Step>
+  
+  <Step title="Leverage instant theme switching">
+    Switch themes without restarting the application or losing work.
+  </Step>
+  
+  <Step title="Appreciate consistent branding">
+    The pink accent color provides visual continuity across all panels.
+  </Step>
+  
+  <Step title="Enjoy responsive layouts">
+    Resize the window to any size - the interface adapts gracefully.
+  </Step>
+</Steps>
+
+## Customization Tips
+
+<Accordion title="Modifying the brand color">
+  Search for `#fb3f62` in the source code and replace with your preferred hex color. Remember to also update the lighter selection color `#f39bab`.
+</Accordion>
+
+<Accordion title="Changing the default font">
+  Replace the Montserrat TTF file in `/fonts/` and update the font name in `MainWindow.main()`. Ensure the new font file is added to the resources.
+</Accordion>
+
+<Accordion title="Adjusting component rounding">
+  Modify the `arc:` values in FlatLaf style properties. Higher values create more rounded corners.
+</Accordion>
+
+<Accordion title="Adding new FlatLaf themes">
+  FlatLaf supports custom themes via properties files. See the [FlatLaf documentation](https://www.formdev.com/flatlaf/themes/) for details.
+</Accordion>
+
+## Troubleshooting
+
+<Accordion title="Theme doesn't change">
+  Ensure you're using a recent version of FlatLaf. Older versions may not support dynamic theme switching.
+</Accordion>
+
+<Accordion title="Custom font not loading">
+  Check that:
+  - The font file exists in `/fonts/`
+  - The file path in the code matches the actual location
+  - The font file is included in the build/JAR
+</Accordion>
+
+<Accordion title="Components not updating after theme change">
+  The `changeTheme()` method should call `SwingUtilities.updateComponentTreeUI()` on all panels. If a panel isn't updating, ensure it's included in the update loop.
+</Accordion>
+
+<Accordion title="Colors look wrong in light mode">
+  The pink accent color (#fb3f62) works well in both themes. If adding new colors, test them in both dark and light modes for adequate contrast.
+</Accordion>
+
+## Related Topics
+
+- [Configuration](/configuration/preferences) - Customize other application settings
+- [Library Management](/features/library-management) - See themed UI components in action
+- [FlatLaf Documentation](https://www.formdev.com/flatlaf/) - Official FlatLaf theming guide
